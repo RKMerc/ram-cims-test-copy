@@ -30,6 +30,7 @@
                             <th>Code</th>
                             <th>Generic Name</th>
                             <th>Brand Name</th>
+                            <th>Dosage</th>
                             <th>Category</th>
                             <th>Quantity On Hand</th>
                             <th>Expiration Date</th>
@@ -42,6 +43,7 @@
                                 <td><span class="fw-semibold text-secondary">{{ $item->ITEM_CODE }}</span></td>
                                 <td class="fw-semibold text-secondary">{{ $item->GENERIC_NAME }}</td>
                                 <td class="text-muted"><em>{{ $item->BRAND_NAME ?? 'N/A' }}</em></td>
+                                <td>{{ $item->ITEM_DOSAGE ?: 'N/A' }}</td>
                                 <td><span class="fw-semibold text-secondary">{{ $item->ITEM_CATEGORY }}</span></td>
                                 <td class="fw-bold {{ $item->ITEM_QUANTITY < 10 ? 'text-danger' : 'text-success' }}">
                                     {{ $item->ITEM_QUANTITY }} pcs
@@ -55,6 +57,7 @@
                                         data-code="{{ $item->ITEM_CODE }}"
                                         data-generic="{{ $item->GENERIC_NAME }}"
                                         data-brand="{{ $item->BRAND_NAME }}"
+                                        data-dosage="{{ $item->ITEM_DOSAGE }}"
                                         data-category="{{ $item->ITEM_CATEGORY }}"
                                         data-quantity="{{ $item->ITEM_QUANTITY }}"
                                         data-expiration="{{ $item->ITEM_EXPIRATION_DATE }}">
@@ -64,7 +67,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="text-center py-5 text-muted">No campus clinic supplies recorded yet.</td>
+                                <td colspan="8" class="text-center py-5 text-muted">No campus clinic supplies recorded yet.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -85,8 +88,9 @@
                     @csrf
                     <div class="modal-body row g-3">
                         <div class="col-md-6">
-                            <label for="ITEM_CODE" class="form-label fw-semibold">Item Code</label>
-                            <input type="text" class="form-control" id="ITEM_CODE" name="ITEM_CODE" placeholder="e.g., 1001" required>
+                            <label class="form-label fw-semibold">Item Code</label>
+                            <input type="text" class="form-control" value="{{ $nextItemCode }}" readonly>
+                            <div class="form-text">Assigned automatically. Restocking keeps the same code.</div>
                         </div>
                         <div class="col-md-6">
                             <label for="ITEM_CATEGORY" class="form-label fw-semibold">Category</label>
@@ -102,9 +106,13 @@
                             <label for="GENERIC_NAME" class="form-label fw-semibold">Generic Name</label>
                             <input type="text" class="form-control" id="GENERIC_NAME" name="GENERIC_NAME" placeholder="e.g., Paracetamol" required>
                         </div>
-                        <div class="col-12">
+                        <div class="col-md-6">
                             <label for="BRAND_NAME" class="form-label fw-semibold">Brand Name (Optional)</label>
                             <input type="text" class="form-control" id="BRAND_NAME" name="BRAND_NAME" placeholder="e.g., Biogesic">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="ITEM_DOSAGE" class="form-label fw-semibold">Dosage</label>
+                            <input type="text" class="form-control" id="ITEM_DOSAGE" name="ITEM_DOSAGE" placeholder="e.g., 500mg">
                         </div>
                         <div class="col-md-6">
                             <label for="ITEM_QUANTITY" class="form-label fw-semibold">Initial Quantity</label>
@@ -136,7 +144,8 @@
                     <div class="modal-body row g-3">
                         <div class="col-md-6">
                             <label for="edit_ITEM_CODE" class="form-label fw-semibold">Item Code</label>
-                            <input type="text" class="form-control" id="edit_ITEM_CODE" name="ITEM_CODE" readonly>
+                            <input type="text" class="form-control" id="edit_ITEM_CODE" readonly>
+                            <div class="form-text">Restocking does not change this code.</div>
                         </div>
                         <div class="col-md-6">
                             <label for="edit_ITEM_CATEGORY" class="form-label fw-semibold">Category</label>
@@ -151,9 +160,13 @@
                             <label for="edit_GENERIC_NAME" class="form-label fw-semibold">Generic Name</label>
                             <input type="text" class="form-control" id="edit_GENERIC_NAME" name="GENERIC_NAME" required>
                         </div>
-                        <div class="col-12">
+                        <div class="col-md-6">
                             <label for="edit_BRAND_NAME" class="form-label fw-semibold">Brand Name (Optional)</label>
                             <input type="text" class="form-control" id="edit_BRAND_NAME" name="BRAND_NAME">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="edit_ITEM_DOSAGE" class="form-label fw-semibold">Dosage</label>
+                            <input type="text" class="form-control" id="edit_ITEM_DOSAGE" name="ITEM_DOSAGE" placeholder="e.g., 500mg">
                         </div>
                         <div class="col-md-6">
                             <label for="edit_ITEM_QUANTITY" class="form-label fw-semibold">Quantity</label>
@@ -191,6 +204,7 @@
                     const code = button.getAttribute('data-code') || '';
                     const generic = button.getAttribute('data-generic') || '';
                     const brand = button.getAttribute('data-brand') || '';
+                    const dosage = button.getAttribute('data-dosage') || '';
                     const category = button.getAttribute('data-category') || '';
                     const quantity = button.getAttribute('data-quantity') || '0';
                     const expiration = button.getAttribute('data-expiration') || '';
@@ -199,6 +213,7 @@
                     document.getElementById('edit_ITEM_CODE').value = code;
                     document.getElementById('edit_GENERIC_NAME').value = generic;
                     document.getElementById('edit_BRAND_NAME').value = brand;
+                    document.getElementById('edit_ITEM_DOSAGE').value = dosage;
                     document.getElementById('edit_ITEM_CATEGORY').value = category;
                     document.getElementById('edit_ITEM_QUANTITY').value = quantity;
 
@@ -260,4 +275,5 @@
                 });
             }
         });
+    </script>
 @endpush

@@ -152,6 +152,25 @@
         border-radius: 999px;
     }
 
+    .dev-mode-badge {
+        display: inline-flex;
+        align-items: center;
+        background: #E1B11A;
+        color: #003B7A;
+        font-weight: 700;
+        font-size: .72rem;
+        letter-spacing: .03em;
+        line-height: 1.2;
+        padding: .45rem .75rem;
+        border-radius: 999px;
+        white-space: nowrap;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, .18);
+    }
+
+    .duty-row-live { cursor: pointer; }
+    .duty-badge-available { background: #28A745 !important; }
+    .duty-badge-closed { background: #6C757D !important; }
+
     .app-links a:hover,
     .app-links a.active {
         color: #003B7A;

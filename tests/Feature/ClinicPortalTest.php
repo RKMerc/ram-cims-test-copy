@@ -187,6 +187,131 @@ class ClinicPortalTest extends TestCase
         $this->actingAs($user)->get('/inventory')->assertOk();
     }
 
+    public function test_new_records_increment_and_existing_ids_stay_put(): void
+    {
+        $user = $this->signIn('Medical Staff', 'mina.codes@apc.edu.ph', 'Mina', 'Reyes', 'EMP-300', 'Nurse');
+
+        Inventory::create([
+            'ITEM_CODE' => 1001,
+            'GENERIC_NAME' => 'Paracetamol',
+            'BRAND_NAME' => 'Biogesic',
+            'ITEM_DOSAGE' => '500mg',
+            'ITEM_CATEGORY' => 'Medicine',
+            'ITEM_QUANTITY' => 4,
+            'ITEM_EXPIRATION_DATE' => now()->addYear()->toDateString(),
+        ]);
+
+        $this->actingAs($user)->post('/inventory', [
+            'GENERIC_NAME' => 'Ibuprofen',
+            'BRAND_NAME' => 'Advil',
+            'ITEM_DOSAGE' => '200mg',
+            'ITEM_CATEGORY' => 'Medicine',
+            'ITEM_QUANTITY' => 20,
+            'ITEM_EXPIRATION_DATE' => now()->addYear()->toDateString(),
+        ])->assertRedirect('/inventory');
+
+        $this->assertDatabaseHas('inventory', [
+            'ITEM_CODE' => 1002,
+            'GENERIC_NAME' => 'Ibuprofen',
+            'ITEM_DOSAGE' => '200mg',
+        ]);
+
+        $this->actingAs($user)->putJson('/inventory/1002', [
+            'ITEM_CODE' => 9999,
+            'GENERIC_NAME' => 'Ibuprofen',
+            'BRAND_NAME' => 'Advil',
+            'ITEM_DOSAGE' => '400mg',
+            'ITEM_CATEGORY' => 'Medicine',
+            'ITEM_QUANTITY' => 40,
+            'ITEM_EXPIRATION_DATE' => now()->addYear()->toDateString(),
+        ])->assertOk();
+
+        $this->assertDatabaseHas('inventory', [
+            'ITEM_CODE' => 1002,
+            'ITEM_QUANTITY' => 40,
+            'ITEM_DOSAGE' => '400mg',
+        ]);
+        $this->assertDatabaseMissing('inventory', ['ITEM_CODE' => 9999]);
+
+        $appointment = Appointment::create([
+            'PATIENT_ID' => '2024100001',
+            'PATIENT_NAME' => 'Ana Cruz',
+            'APPOINTMENT_TYPE' => 'Consultation',
+            'APPOINTMENT_REASON' => 'Headache',
+            'ATTENDING_PHYSICIAN' => 'Dr. Cruz',
+            'SCHEDULED_AT' => now()->addDay(),
+            'STATUS' => 'Scheduled',
+        ]);
+
+        $this->actingAs($user)->putJson('/appointments/'.$appointment->APPOINTMENT_ID, [
+            'APPOINTMENT_ID' => 99999,
+            'PATIENT_ID' => '2024100888',
+            'PATIENT_NAME' => 'Ana Cruz',
+            'APPOINTMENT_TYPE' => 'Routine Checkup',
+            'APPOINTMENT_REASON' => 'Updated reason',
+            'ATTENDING_PHYSICIAN' => 'Mina Reyes',
+            'SCHEDULED_AT' => now()->addDays(3)->format('Y-m-d H:i:s'),
+            'STATUS' => 'In Consultation',
+        ])->assertOk();
+
+        $updated = Appointment::find($appointment->APPOINTMENT_ID);
+        $this->assertNotNull($updated);
+        $this->assertSame('2024100888', (string) $updated->PATIENT_ID);
+        $this->assertSame('Routine Checkup', $updated->APPOINTMENT_TYPE);
+        $this->assertSame('Updated reason', $updated->APPOINTMENT_REASON);
+        $this->assertSame('Mina Reyes', $updated->ATTENDING_PHYSICIAN);
+        $this->assertSame('In Consultation', $updated->STATUS);
+        $this->assertNull(Appointment::find(99999));
+
+        $page = $this->actingAs($user)->get('/appointments');
+        $page->assertOk();
+        $page->assertSee('Select attending physician');
+        $page->assertSee('Mina Reyes');
+        $page->assertSee('Select Medical Staff / Practitioner');
+        $page->assertSee('Dr. Marciano Fidel L. Avendaño - Doctor');
+        $page->assertSee('value="'.Appointment::nextPatientId().'"', false);
+    }
+
+    public function test_duty_board_books_an_open_slot_and_keeps_status_toggles_in_developer_mode(): void
+    {
+        $user = $this->signIn('Medical Staff', 'mina.duty@apc.edu.ph', 'Mina', 'Reyes', 'EMP-301', 'Nurse');
+        $name = 'Dr. Marciano Fidel L. Avendaño';
+        $return = '/appointments?practitioner='.urlencode($name).'&duty_date=2026-10-08';
+
+        $page = $this->actingAs($user)->get($return);
+        $page->assertOk();
+        $page->assertSee('2:00 PM - 2:30 PM');
+        $page->assertSee('Available');
+        $page->assertSee('8:00 AM - 8:30 AM');
+        $page->assertSee('Off Duty / Not Available');
+        $page->assertDontSee('DEV MODE: FULL PERMISSIONS ACTIVE');
+
+        $this->actingAs($user)->post('/duty-slots/book', [
+            'practitioner' => $name,
+            'duty_date' => '2026-10-08',
+            'start' => '14:00:00',
+            'patient_name' => 'Test Patient',
+            'patient_id' => '2024101234',
+            'reason' => 'Slot booking',
+            'return_to' => $return,
+        ])->assertRedirect($return);
+
+        $this->assertDatabaseHas('appointments', [
+            'PATIENT_NAME' => 'Test Patient',
+            'ATTENDING_PHYSICIAN' => $name,
+            'PATIENT_ID' => '2024101234',
+        ]);
+
+        $booked = $this->actingAs($user)->get($return);
+        $booked->assertSee('Occupied - Test Patient');
+
+        $this->actingAs($user)->postJson('/duty-slots/toggle', [
+            'practitioner' => $name,
+            'duty_date' => '2026-10-08',
+            'start' => '14:30:00',
+        ])->assertForbidden();
+    }
+
     public function test_ramsey_does_not_send_students_to_inventory(): void
     {
         $user = $this->signIn('Student', 'ana2@apc.edu.ph', 'Ana', 'Cruz', '2024100002');

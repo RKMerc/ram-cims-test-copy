@@ -29,6 +29,24 @@ class MedicalRecordController extends Controller
         return redirect()->back()->with('success', 'Medical record added successfully.');
     }
 
+    public function update(Request $request, $id)
+    {
+        $record = MedicalRecord::findOrFail($id);
+
+        $validated = $request->validate([
+            'PATIENT_ID' => 'required|integer',
+            'APPT_ID' => 'required|integer',
+            'MEDREC_CONSUL_DATE' => 'required|date',
+            'MEDREC_DIAGNOSIS' => 'required|string|max:250',
+            'MEDREC_MEDICINE_DOSAGE' => 'nullable|string|max:100',
+            'MEDREC_NOTES' => 'nullable|string|max:45',
+        ]);
+
+        $record->update($validated);
+
+        return redirect()->back()->with('success', 'Medical record updated.');
+    }
+
     public function destroy($id)
     {
         $record = MedicalRecord::findOrFail($id);

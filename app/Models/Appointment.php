@@ -58,4 +58,22 @@ class Appointment extends Model
     {
         return $query->whereRaw("LOWER(COALESCE(STATUS, '')) IN ('pending', 'scheduled', 'queued', 'waiting')");
     }
+
+    public static function nextAppointmentId(): int
+    {
+        $max = static::query()->max('APPOINTMENT_ID');
+
+        return $max ? ((int) $max) + 1 : 1;
+    }
+
+    public static function nextPatientId(): string
+    {
+        $max = static::query()
+            ->pluck('PATIENT_ID')
+            ->filter(fn ($id) => preg_match('/^\d+$/', (string) $id))
+            ->map(fn ($id) => (int) $id)
+            ->max();
+
+        return (string) (($max ?: 1000) + 1);
+    }
 }

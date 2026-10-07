@@ -18,6 +18,7 @@
                     <small>Asia Pacific College Clinic</small>
                 </span>
             </a>
+            <div class="d-flex flex-wrap align-items-center justify-content-end gap-2 ms-auto">
             <nav class="app-links" aria-label="Primary">
                 <a class="{{ request()->is('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">Dashboard</a>
                 <a class="{{ request()->is('appointments') || request()->is('appointments/*') ? 'active' : '' }}" href="{{ url('/appointments') }}">Appointments</a>
@@ -25,11 +26,18 @@
                     <a class="{{ request()->is('inventory') || request()->is('inventory/*') ? 'active' : '' }}" href="{{ url('/inventory') }}">Inventory</a>
                     <a class="{{ request()->is('medical-records') || request()->is('records') || request()->is('records/*') ? 'active' : '' }}" href="{{ url('/medical-records') }}">Medical Records</a>
                     <a class="{{ request()->is('analytics') ? 'active' : '' }}" href="{{ route('analytics') }}">Analytics</a>
+                    @if($developerMode ?? false)
+                        <a class="{{ request()->is('users') ? 'active' : '' }}" href="{{ route('users.index') }}">User Accounts</a>
+                    @endif
                 @else
                     <a class="{{ request()->is('visit-history') ? 'active' : '' }}" href="{{ route('visit-history') }}">Visit History</a>
                     <a class="{{ request()->is('profile') ? 'active' : '' }}" href="{{ route('profile') }}">Profile</a>
                 @endif
             </nav>
+            @if($developerMode ?? false)
+                <span class="dev-mode-badge" role="status">DEV MODE: FULL PERMISSIONS ACTIVE</span>
+            @endif
+            </div>
         </div>
     </header>
 

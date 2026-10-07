@@ -43,6 +43,15 @@
                             <td>{{ $record->MEDREC_MEDICINE_DOSAGE ?? 'None' }}</td>
                             <td class="text-muted">{{ $record->MEDREC_NOTES ?? 'N/A' }}</td>
                             <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold rounded-2"
+                                    data-bs-toggle="modal" data-bs-target="#editMedicalRecordModal"
+                                    data-id="{{ $record->MEDREC_ID }}"
+                                    data-patient="{{ $record->PATIENT_ID }}"
+                                    data-appointment="{{ $record->APPT_ID }}"
+                                    data-date="{{ \Carbon\Carbon::parse($record->MEDREC_CONSUL_DATE)->format('Y-m-d') }}"
+                                    data-diagnosis="{{ $record->MEDREC_DIAGNOSIS }}"
+                                    data-dosage="{{ $record->MEDREC_MEDICINE_DOSAGE }}"
+                                    data-notes="{{ $record->MEDREC_NOTES }}">Edit</button>
                                 <form action="/medical-records/{{ $record->MEDREC_ID }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this medical record?');">
                                     @csrf
                                     @method('DELETE')
@@ -89,7 +98,7 @@
                     <textarea name="MEDREC_DIAGNOSIS" class="form-control" rows="2" maxlength="250" required></textarea>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Medicine Dosage</label>
+                    <label class="form-label fw-semibold">Prescription / Medicine Dosage</label>
                     <input type="text" name="MEDREC_MEDICINE_DOSAGE" class="form-control" maxlength="100">
                 </div>
                 <div class="mb-3">
@@ -104,4 +113,63 @@
         </form>
     </div>
 </div>
+
+<div class="modal fade" id="editMedicalRecordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" id="editMedicalRecordForm" action="/medical-records/0" class="modal-content">
+            @csrf
+            @method('PUT')
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title fw-bold">Edit Medical Record</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="edit_record_patient">Patient ID</label>
+                    <input type="number" name="PATIENT_ID" id="edit_record_patient" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="edit_record_appointment">Appointment ID</label>
+                    <input type="number" name="APPT_ID" id="edit_record_appointment" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="edit_record_date">Consultation Date</label>
+                    <input type="date" name="MEDREC_CONSUL_DATE" id="edit_record_date" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="edit_record_diagnosis">Diagnosis</label>
+                    <textarea name="MEDREC_DIAGNOSIS" id="edit_record_diagnosis" class="form-control" rows="2" maxlength="250" required></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="edit_record_dosage">Prescription / Medicine Dosage</label>
+                    <input type="text" name="MEDREC_MEDICINE_DOSAGE" id="edit_record_dosage" class="form-control" maxlength="100">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="edit_record_notes">Notes</label>
+                    <input type="text" name="MEDREC_NOTES" id="edit_record_notes" class="form-control" maxlength="45">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Record</button>
+            </div>
+        </form>
+    </div>
+</div>
 @endsection
+
+@push('scripts')
+<script>
+document.getElementById('editMedicalRecordModal')?.addEventListener('show.bs.modal', function (event) {
+    const button = event.relatedTarget;
+    if (!button) return;
+    document.getElementById('editMedicalRecordForm').action = '/medical-records/' + button.getAttribute('data-id');
+    document.getElementById('edit_record_patient').value = button.getAttribute('data-patient') || '';
+    document.getElementById('edit_record_appointment').value = button.getAttribute('data-appointment') || '';
+    document.getElementById('edit_record_date').value = button.getAttribute('data-date') || '';
+    document.getElementById('edit_record_diagnosis').value = button.getAttribute('data-diagnosis') || '';
+    document.getElementById('edit_record_dosage').value = button.getAttribute('data-dosage') || '';
+    document.getElementById('edit_record_notes').value = button.getAttribute('data-notes') || '';
+});
+</script>
+@endpush

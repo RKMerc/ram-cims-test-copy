@@ -4,8 +4,10 @@ use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DutySlotController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\MedicalRecordController;
+use App\Http\Controllers\PreviewController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RamseyController;
 use App\Http\Controllers\UserAccountController;
@@ -13,6 +15,10 @@ use App\Http\Controllers\VisitHistoryController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [MicrosoftController::class, 'showLoginForm'])->name('login');
+
+if (app()->environment('local')) {
+    Route::get('/preview/{role}', [PreviewController::class, 'enter'])->name('preview');
+}
 
 Route::post('/users', [UserAccountController::class, 'store']);
 Route::post('/ramsey/ask', [RamseyController::class, 'ask']);
@@ -27,6 +33,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/visit-history', [VisitHistoryController::class, 'index'])->name('visit-history');
 
     Route::resource('appointments', AppointmentController::class);
+    Route::post('/duty-slots/book', [DutySlotController::class, 'book'])->name('duty-slots.book');
+    Route::post('/duty-slots/toggle', [DutySlotController::class, 'toggle'])->name('duty-slots.toggle');
+    Route::post('/duty-slots/assign', [DutySlotController::class, 'assign'])->name('duty-slots.assign');
 
     Route::middleware('staff')->group(function () {
         Route::post('/dashboard/next-patient', [DashboardController::class, 'nextPatient'])->name('dashboard.next-patient');
@@ -41,11 +50,16 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/medical-records', [MedicalRecordController::class, 'index'])->name('medical-records');
         Route::post('/medical-records', [MedicalRecordController::class, 'store']);
+        Route::put('/medical-records/{id}', [MedicalRecordController::class, 'update']);
         Route::delete('/medical-records/{id}', [MedicalRecordController::class, 'destroy']);
 
         Route::get('/records', [MedicalRecordController::class, 'index']);
         Route::post('/records', [MedicalRecordController::class, 'store']);
+        Route::put('/records/{id}', [MedicalRecordController::class, 'update']);
         Route::delete('/records/{id}', [MedicalRecordController::class, 'destroy']);
+
+        Route::get('/users', [UserAccountController::class, 'index'])->name('users.index');
+        Route::put('/users/{id}', [UserAccountController::class, 'update']);
 
         Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');
     });

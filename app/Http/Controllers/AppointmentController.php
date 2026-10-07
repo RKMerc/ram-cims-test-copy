@@ -48,7 +48,13 @@ class AppointmentController extends Controller
                 ->get()
             : collect();
 
-        return view('appointments.index', compact('appointments', 'schedules', 'isClinicStaff'));
+        return view('appointments.index', [
+            'appointments' => $appointments,
+            'schedules' => $schedules,
+            'isClinicStaff' => $isClinicStaff,
+            'nextPatientId' => Appointment::nextPatientId(),
+            'nextAppointmentId' => Appointment::nextAppointmentId(),
+        ]);
     }
 
     public function storeSchedule(Request $request)

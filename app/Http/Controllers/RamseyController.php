@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\DoctorSchedule;
 use App\Models\ScheduleReminder;
 use App\Support\ClinicAccess;
+use App\Support\ClinicRoster;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -135,13 +136,14 @@ class RamseyController extends Controller
             ->take(3)
             ->get();
 
+        $standing = "These are the clinic duty hours:\n".ClinicRoster::summary();
+
         if ($slots->isEmpty()) {
             return $this->reply(
-                'No clinic slots are open right now. Leave your email and I will keep a reminder for when a schedule is published.',
+                $standing,
                 [
                     ['label' => 'View Appointments', 'href' => '/appointments'],
-                ],
-                true
+                ]
             );
         }
 
@@ -154,7 +156,7 @@ class RamseyController extends Controller
         })->implode("\n");
 
         return $this->reply(
-            "These physician schedules are open:\n".$lines,
+            $standing."\n\nExtra published dates:\n".$lines,
             [
                 ['label' => 'Schedule a visit', 'href' => '/appointments'],
             ]

@@ -9,25 +9,27 @@ class InventoryController extends Controller
 {
     public function index()
     {
-        $supplies = Inventory::all();
-        return view('inventory.index', compact('supplies'));
+        $supplies = Inventory::query()->orderBy('ITEM_CODE')->get();
+        $nextItemCode = Inventory::nextItemCode();
+
+        return view('inventory.index', compact('supplies', 'nextItemCode'));
     }
 
-    // Handle the submission of a new item form
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'ITEM_CODE'            => 'required|integer|unique:inventory,ITEM_CODE',
             'GENERIC_NAME'         => 'required|string|max:255',
             'BRAND_NAME'           => 'nullable|string|max:255',
+            'ITEM_DOSAGE'          => 'nullable|string|max:100',
             'ITEM_CATEGORY'        => 'required|string',
             'ITEM_QUANTITY'        => 'required|integer|min:0',
             'ITEM_EXPIRATION_DATE' => 'required|date',
         ]);
 
+        $validated['ITEM_CODE'] = Inventory::nextItemCode();
         Inventory::create($validated);
 
-        return redirect('/inventory')->with('success', 'Item created successfully!');
+        return redirect('/inventory')->with('success', 'Item '.$validated['ITEM_CODE'].' added to inventory.');
     }
 
     public function update(Request $request, $inventory)
@@ -37,6 +39,7 @@ class InventoryController extends Controller
         $validated = $request->validate([
             'GENERIC_NAME'         => 'required|string|max:255',
             'BRAND_NAME'           => 'nullable|string|max:255',
+            'ITEM_DOSAGE'          => 'nullable|string|max:100',
             'ITEM_CATEGORY'        => 'required|string',
             'ITEM_QUANTITY'        => 'required|integer|min:0',
             'ITEM_EXPIRATION_DATE' => 'required|date',

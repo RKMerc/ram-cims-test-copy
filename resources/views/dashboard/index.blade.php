@@ -8,4 +8,6 @@
     @else
         @include('dashboard.student')
     @endif
+
+    @include('partials.duty-board')
 @endsection
