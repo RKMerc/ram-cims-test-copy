@@ -5,9 +5,16 @@
 @section('content')
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold text-primary">Clinic Appointments</h2>
+        <div>
+            <h2 class="fw-bold text-primary mb-1">{{ $isClinicStaff ? 'Clinic Appointments' : 'My Appointments' }}</h2>
+            <p class="text-muted mb-0">{{ $isClinicStaff ? 'Queue management for clinic visits.' : 'Schedule a check-up and review your bookings.' }}</p>
+        </div>
+        @unless($isClinicStaff)
+            <button class="btn btn-primary fw-semibold" data-bs-toggle="modal" data-bs-target="#addAppointmentModal">+ Schedule Check-Up</button>
+        @endunless
     </div>
 
+    @if($isClinicStaff)
     <!-- Filter/Search Bar -->
     <div class="card mb-4 shadow-sm border-0 rounded-3">
         <div class="card-body">
@@ -35,12 +42,15 @@
             </form>
         </div>
     </div>
+    @endif
 
     <!-- Appointments Table -->
     <div class="card mb-4 shadow-sm border-0 rounded-3 overflow-hidden">
         <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
-            <h5 class="mb-0 fw-bold">Clinic Appointments</h5>
-            <button class="btn btn-sm btn-light fw-semibold rounded-2" data-bs-toggle="modal" data-bs-target="#addAppointmentModal">+ Schedule Appointment</button>
+            <h5 class="mb-0 fw-bold">{{ $isClinicStaff ? 'Clinic Appointments' : 'My Scheduled Appointments' }}</h5>
+            @if($isClinicStaff)
+                <button class="btn btn-sm btn-light fw-semibold rounded-2" data-bs-toggle="modal" data-bs-target="#addAppointmentModal">+ Schedule Appointment</button>
+            @endif
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -55,7 +65,9 @@
                             <th>Physician/Staff</th>
                             <th>Date & Time</th>
                             <th>Status</th>
-                            <th class="text-center">Actions</th>
+                            @if($isClinicStaff)
+                                <th class="text-center">Actions</th>
+                            @endif
                         </tr>
                     </thead>
                     <tbody>
@@ -73,6 +85,7 @@
                                     {{ $app->STATUS }}
                                 </span>
                             </td>
+                            @if($isClinicStaff)
                             <td class="text-center">
                                 <button type="button" class="btn btn-sm btn-outline-primary fw-semibold edit-btn rounded-2"
                                     data-bs-toggle="modal" data-bs-target="#editAppointmentModal"
@@ -92,10 +105,11 @@
                                     <button type="submit" class="btn btn-sm btn-outline-danger fw-semibold rounded-2">Remove</button>
                                 </form>
                             </td>
+                            @endif
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="9" class="text-center py-4 text-muted">No appointments found.</td>
+                            <td colspan="{{ $isClinicStaff ? 9 : 8 }}" class="text-center py-4 text-muted">No appointments found.</td>
                         </tr>
                         @endforelse
                     </tbody>
@@ -117,11 +131,19 @@
             <div class="modal-body row g-3">
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Patient ID</label>
-                    <input type="text" name="PATIENT_ID" class="form-control" placeholder="e.g. 2024140159" pattern="[0-9]{10}" title="Please enter a valid 10-digit Patient ID" required>
+                    @if($isClinicStaff)
+                        <input type="text" name="PATIENT_ID" class="form-control" placeholder="e.g. 2024140159" pattern="[0-9]{10}" title="Please enter a valid 10-digit Patient ID" required>
+                    @else
+                        <input type="text" name="PATIENT_ID" class="form-control" value="{{ $clinicAccount?->Student_Employee_No ?: $clinicAccount?->Id }}" readonly>
+                    @endif
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Patient Name</label>
-                    <input type="text" name="PATIENT_NAME" class="form-control" placeholder="John Doe" required>
+                    @if($isClinicStaff)
+                        <input type="text" name="PATIENT_NAME" class="form-control" placeholder="John Doe" required>
+                    @else
+                        <input type="text" name="PATIENT_NAME" class="form-control" value="{{ $clinicAccount?->fullName() }}" readonly>
+                    @endif
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Appointment Type</label>
@@ -153,6 +175,7 @@
     </div>
 </div>
 
+@if($isClinicStaff)
 <!-- Edit Appointment Modal -->
 <div class="modal fade" id="editAppointmentModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -203,7 +226,9 @@
         </form>
     </div>
 </div>
+@endif
 
+@if($isClinicStaff)
 <div class="card mb-5 shadow-sm border-0 rounded-3 overflow-hidden">
     <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
         <h5 class="mb-0 fw-bold">Doctor Duty Schedule & Availability</h5>
@@ -313,6 +338,7 @@
         </form>
     </div>
 </div>
+@endif
 @endsection
 
 

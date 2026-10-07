@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DoctorSchedule;
 use App\Models\ScheduleReminder;
+use App\Support\ClinicAccess;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -25,12 +26,28 @@ class RamseyController extends Controller
         }
 
         if ($this->mentions($message, ['who are you', 'what can you', 'help', 'ramsey', 'purpose'])) {
+            if (! $this->isStaff()) {
+                return $this->reply(
+                    'I am RAMsey, the clinic assistant. I can help you schedule a check-up, review your appointments, and read your own visit history.'
+                );
+            }
+
             return $this->reply(
-                'I am RAMsey, the clinic assistant. I can point you to appointments, inventory, and medical records, and I can watch for an open schedule. If no clinic slot is available, I will save an email reminder for when a physician publishes one.'
+                'I am RAMsey, the clinic assistant. I can point you to the queue, inventory, and medical records, and I can watch for an open schedule. If no clinic slot is available, I will save an email reminder for when a physician publishes one.'
             );
         }
 
         if ($this->mentions($message, ['inventory', 'stock', 'supply', 'medicine', 'supplies'])) {
+            if (! $this->isStaff()) {
+                return $this->reply(
+                    'Inventory is part of clinic operations and is limited to doctors, nurses, and admins. I can help with your appointments and your own visit history.',
+                    [
+                        ['label' => 'My appointments', 'href' => '/appointments'],
+                        ['label' => 'Visit history', 'href' => '/visit-history'],
+                    ]
+                );
+            }
+
             return $this->reply(
                 'Inventory is where the clinic tracks medicine and supplies, including quantity and expiration.',
                 [
@@ -39,7 +56,16 @@ class RamseyController extends Controller
             );
         }
 
-        if ($this->mentions($message, ['record', 'diagnosis', 'chart', 'medical record'])) {
+        if ($this->mentions($message, ['record', 'diagnosis', 'chart', 'medical record', 'visit history'])) {
+            if (! $this->isStaff()) {
+                return $this->reply(
+                    'Your visit history shows the symptoms, notes, and medicine from your own clinic visits.',
+                    [
+                        ['label' => 'Visit history', 'href' => '/visit-history'],
+                    ]
+                );
+            }
+
             return $this->reply(
                 'Medical records hold consultation notes, diagnosis, and dosage for a visit.',
                 [
@@ -49,21 +75,37 @@ class RamseyController extends Controller
         }
 
         if ($this->mentions($message, ['dashboard', 'home', 'overview'])) {
-            return $this->reply(
-                'The dashboard summarizes today\'s appointments and items that are running low.',
-                [
-                    ['label' => 'Open Dashboard', 'href' => '/dashboard'],
-                ]
-            );
+            $summary = $this->isStaff()
+                ? 'The operations dashboard summarizes today\'s queue and items that are running low.'
+                : 'Your dashboard shows your upcoming check-ups and your latest clinic visit.';
+
+            return $this->reply($summary, [
+                ['label' => 'Open Dashboard', 'href' => '/dashboard'],
+            ]);
         }
 
         if ($this->mentions($message, ['appointment', 'schedule', 'book', 'slot', 'check-up', 'checkup', 'availability', 'visit', 'doctor'])) {
             return $this->availabilityReply();
         }
 
+        if (! $this->isStaff()) {
+            return $this->reply(
+                'I can help you book a check-up, review your appointments, or open your visit history. Ask me something like "Is there an open slot?"',
+                [
+                    ['label' => 'My appointments', 'href' => '/appointments'],
+                    ['label' => 'Visit history', 'href' => '/visit-history'],
+                ]
+            );
+        }
+
         return $this->reply(
             'I can help you book a visit, check physician availability, or jump to inventory and medical records. Ask me something like "Is there an open slot?"'
         );
+    }
+
+    private function isStaff(): bool
+    {
+        return app(ClinicAccess::class)->isStaff();
     }
 
     public function remind(Request $request)
