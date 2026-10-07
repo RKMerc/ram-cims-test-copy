@@ -34,6 +34,7 @@ Route::middleware('auth')->group(function () {
 
     Route::resource('appointments', AppointmentController::class);
     Route::post('/duty-slots/book', [DutySlotController::class, 'book'])->name('duty-slots.book');
+    Route::post('/duty-slots/cancel', [DutySlotController::class, 'cancel'])->name('duty-slots.cancel');
     Route::post('/duty-slots/toggle', [DutySlotController::class, 'toggle'])->name('duty-slots.toggle');
     Route::post('/duty-slots/assign', [DutySlotController::class, 'assign'])->name('duty-slots.assign');
 

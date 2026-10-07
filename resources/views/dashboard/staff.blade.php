@@ -115,7 +115,7 @@
                         <td class="ps-4 fw-semibold text-secondary">#{{ $item->ITEM_CODE }}</td>
                         <td class="fw-medium">{{ $item->GENERIC_NAME }}</td>
                         <td>{{ $item->BRAND_NAME }}</td>
-                        <td>{{ $item->ITEM_DOSAGE ?: 'N/A' }}</td>
+                        <td>{{ trim(($item->ITEM_DOSAGE ?: '').' '.($item->ITEM_UNIT ?: '')) ?: 'N/A' }}</td>
                         <td><span class="badge bg-secondary bg-opacity-10 text-secondary">{{ $item->ITEM_CATEGORY }}</span></td>
                         <td class="text-muted">{{ $item->ITEM_EXPIRATION_DATE ? \Carbon\Carbon::parse($item->ITEM_EXPIRATION_DATE)->format('Y-m-d') : 'N/A' }}</td>
                         <td class="text-end pe-4">

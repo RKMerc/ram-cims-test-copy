@@ -162,20 +162,41 @@
     .duty-open { background: #D4EDDA !important; color: #155724; }
     .duty-closed { background: #E2E3E5 !important; color: #383D41; }
     .duty-cell-btn {
-        border: 0;
+        border: 2px solid transparent;
+        border-radius: 10px;
         background: transparent;
         color: inherit;
         font-weight: 700;
-        letter-spacing: .03em;
-        width: 100%;
-        padding: .85rem .35rem;
-    }
-    .duty-cell-label {
-        display: block;
-        font-weight: 700;
         letter-spacing: .02em;
-        padding: .85rem .35rem;
-        font-size: .78rem;
+        width: 100%;
+        min-height: 4.6rem;
+        padding: .7rem .35rem;
+        cursor: pointer;
+        transition: transform .12s ease, border-color .12s ease, background-color .12s ease;
+    }
+    .duty-open .duty-cell-btn:hover,
+    .duty-open .duty-cell-btn.is-selected {
+        background: #c3e6cb;
+        border-color: #155724;
+        transform: translateY(-1px);
+    }
+    .duty-closed .duty-cell-btn:hover,
+    .duty-closed .duty-cell-btn.is-selected {
+        background: #d6d8db;
+        border-color: #383D41;
+        transform: translateY(-1px);
+    }
+    .duty-cell-btn:focus-visible {
+        outline: 3px solid #E1B11A;
+        outline-offset: 2px;
+    }
+    .duty-cell-hint {
+        display: block;
+        margin-top: .2rem;
+        font-size: .68rem;
+        font-weight: 600;
+        letter-spacing: 0;
+        opacity: .8;
     }
 
     .app-links a:hover,

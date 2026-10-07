@@ -79,27 +79,37 @@ class DutyBoard
                 $booked = $this->bookedDuring($appointments, $start, $end);
                 $onShift = $day['works'] && (! $rostered || ClinicRoster::covers($name, $start, $end));
 
+                $first = $booked->first();
+                $patient = $booked->isEmpty() ? '' : $booked->pluck('PATIENT_NAME')->implode(', ');
+                $base = [
+                    'date' => $day['date'],
+                    'start' => $start->format('H:i:s'),
+                    'patient' => $patient,
+                    'patient_id' => $first?->PATIENT_ID,
+                    'reason' => $first?->APPOINTMENT_REASON,
+                    'appointment_id' => $first?->APPOINTMENT_ID,
+                ];
+
                 if ($booked->isNotEmpty()) {
-                    $patient = $booked->pluck('PATIENT_NAME')->implode(', ');
-                    $cells[] = [
+                    $cells[] = $base + [
                         'open' => false,
+                        'kind' => 'occupied',
                         'text' => 'OCCUPIED - '.$patient,
-                        'date' => $day['date'],
-                        'start' => $start->format('H:i:s'),
+                        'hint' => 'Click to view',
                     ];
                 } elseif (! $onShift) {
-                    $cells[] = [
+                    $cells[] = $base + [
                         'open' => false,
+                        'kind' => 'closed',
                         'text' => 'NOT AVAILABLE',
-                        'date' => $day['date'],
-                        'start' => $start->format('H:i:s'),
+                        'hint' => 'Click for details',
                     ];
                 } else {
-                    $cells[] = [
+                    $cells[] = $base + [
                         'open' => true,
+                        'kind' => 'available',
                         'text' => 'AVAILABLE',
-                        'date' => $day['date'],
-                        'start' => $start->format('H:i:s'),
+                        'hint' => 'Click to book',
                     ];
                 }
             }

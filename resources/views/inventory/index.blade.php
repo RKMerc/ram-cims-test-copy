@@ -43,7 +43,7 @@
                                 <td><span class="fw-semibold text-secondary">{{ $item->ITEM_CODE }}</span></td>
                                 <td class="fw-semibold text-secondary">{{ $item->GENERIC_NAME }}</td>
                                 <td class="text-muted"><em>{{ $item->BRAND_NAME ?? 'N/A' }}</em></td>
-                                <td>{{ $item->ITEM_DOSAGE ?: 'N/A' }}</td>
+                                <td>{{ trim(($item->ITEM_DOSAGE ?: '').' '.($item->ITEM_UNIT ?: '')) ?: 'N/A' }}</td>
                                 <td><span class="fw-semibold text-secondary">{{ $item->ITEM_CATEGORY }}</span></td>
                                 <td class="fw-bold {{ $item->ITEM_QUANTITY < 10 ? 'text-danger' : 'text-success' }}">
                                     {{ $item->ITEM_QUANTITY }} pcs
@@ -58,6 +58,7 @@
                                         data-generic="{{ $item->GENERIC_NAME }}"
                                         data-brand="{{ $item->BRAND_NAME }}"
                                         data-dosage="{{ $item->ITEM_DOSAGE }}"
+                                        data-unit="{{ $item->ITEM_UNIT }}"
                                         data-category="{{ $item->ITEM_CATEGORY }}"
                                         data-quantity="{{ $item->ITEM_QUANTITY }}"
                                         data-expiration="{{ $item->ITEM_EXPIRATION_DATE }}">
@@ -113,6 +114,10 @@
                         <div class="col-md-6">
                             <label for="ITEM_DOSAGE" class="form-label fw-semibold">Dosage</label>
                             <input type="text" class="form-control" id="ITEM_DOSAGE" name="ITEM_DOSAGE" placeholder="e.g., 500mg">
+                            <label for="ITEM_UNIT" class="form-label fw-semibold mt-2">Unit</label>
+                            <select class="form-select" id="ITEM_UNIT" name="ITEM_UNIT">
+                                @include('partials.dosage-unit-options')
+                            </select>
                         </div>
                         <div class="col-md-6">
                             <label for="ITEM_QUANTITY" class="form-label fw-semibold">Initial Quantity</label>
@@ -167,6 +172,10 @@
                         <div class="col-md-6">
                             <label for="edit_ITEM_DOSAGE" class="form-label fw-semibold">Dosage</label>
                             <input type="text" class="form-control" id="edit_ITEM_DOSAGE" name="ITEM_DOSAGE" placeholder="e.g., 500mg">
+                            <label for="edit_ITEM_UNIT" class="form-label fw-semibold mt-2">Unit</label>
+                            <select class="form-select" id="edit_ITEM_UNIT" name="ITEM_UNIT">
+                                @include('partials.dosage-unit-options')
+                            </select>
                         </div>
                         <div class="col-md-6">
                             <label for="edit_ITEM_QUANTITY" class="form-label fw-semibold">Quantity</label>
@@ -205,6 +214,7 @@
                     const generic = button.getAttribute('data-generic') || '';
                     const brand = button.getAttribute('data-brand') || '';
                     const dosage = button.getAttribute('data-dosage') || '';
+                    const unit = button.getAttribute('data-unit') || '';
                     const category = button.getAttribute('data-category') || '';
                     const quantity = button.getAttribute('data-quantity') || '0';
                     const expiration = button.getAttribute('data-expiration') || '';
@@ -214,6 +224,11 @@
                     document.getElementById('edit_GENERIC_NAME').value = generic;
                     document.getElementById('edit_BRAND_NAME').value = brand;
                     document.getElementById('edit_ITEM_DOSAGE').value = dosage;
+                    const unitSelect = document.getElementById('edit_ITEM_UNIT');
+                    if (unit && ![...unitSelect.options].some(option => option.value === unit)) {
+                        unitSelect.add(new Option(unit, unit));
+                    }
+                    unitSelect.value = unit;
                     document.getElementById('edit_ITEM_CATEGORY').value = category;
                     document.getElementById('edit_ITEM_QUANTITY').value = quantity;
 

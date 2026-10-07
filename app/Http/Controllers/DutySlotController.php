@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Appointment;
 use App\Support\ClinicAccess;
 use App\Support\DeveloperMode;
 use App\Support\DutyBoard;
@@ -50,6 +51,26 @@ class DutySlotController extends Controller
         $this->board->saveAppointment($data['practitioner'], $data['duty_date'], $data['start'], $fields);
 
         return $this->back($request)->with('success', 'Appointment booked for '.$fields['patient_name'].'.');
+    }
+
+    public function cancel(Request $request)
+    {
+        abort_unless($this->access->isStaff(), 403);
+
+        $data = $this->validated($request);
+        $request->validate([
+            'appointment_id' => 'required|integer',
+        ]);
+
+        $appointment = Appointment::query()->findOrFail($request->integer('appointment_id'));
+
+        if ($appointment->ATTENDING_PHYSICIAN !== $data['practitioner']) {
+            return $this->back($request)->with('error', 'That visit is not on this physician\'s schedule.');
+        }
+
+        $appointment->update(['STATUS' => 'Cancelled']);
+
+        return $this->back($request)->with('success', 'The visit for '.$appointment->PATIENT_NAME.' was cancelled. That hour is open again.');
     }
 
     public function toggle(Request $request)
