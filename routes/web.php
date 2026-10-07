@@ -6,6 +6,8 @@ use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\MedicalRecordController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Auth\MicrosoftController;
+use App\Http\Controllers\RamseyController;
+use App\Http\Controllers\UserAccountController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -24,6 +26,10 @@ Route::delete('/medical-records/{id}', [MedicalRecordController::class, 'destroy
 //     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 // });
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+Route::post('/users', [UserAccountController::class, 'store']);
+Route::post('/ramsey/ask', [RamseyController::class, 'ask']);
+Route::post('/ramsey/remind', [RamseyController::class, 'remind']);
 
 Route::get('/login', [MicrosoftController::class, 'showLoginForm'])->name('login');
 Route::get('/auth/microsoft', [MicrosoftController::class, 'redirectToMicrosoft'])->name('auth.microsoft');

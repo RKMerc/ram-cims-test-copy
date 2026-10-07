@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Models\DoctorSchedule;
+use App\Models\ScheduleReminder;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
@@ -48,7 +49,13 @@ class AppointmentController extends Controller
 
         DoctorSchedule::create($validated);
 
-        return redirect('/appointments')->with('success', 'Doctor availability schedule added!');
+        $waiting = ScheduleReminder::whereNull('notified_at')->count();
+        $message = 'Doctor availability schedule added!';
+        if ($waiting > 0) {
+            $message .= ' '.$waiting.' email reminder'.($waiting === 1 ? '' : 's').' are waiting for an opening.';
+        }
+
+        return redirect('/appointments')->with('success', $message);
     }
 
     public function store(Request $request)

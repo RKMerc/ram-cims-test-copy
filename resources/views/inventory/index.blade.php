@@ -3,7 +3,7 @@
 @section('title', 'RAM-CIMS - Inventory')
 
 @section('content')
-    <div class="container mt-5">
+    <div>
         
         @if(session('success'))
             <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">

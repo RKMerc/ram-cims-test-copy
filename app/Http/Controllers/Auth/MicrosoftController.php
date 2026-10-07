@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use Laravel\Socialite\Facades\Socialite;
+use App\Models\AppUser;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -33,6 +34,12 @@ class MicrosoftController extends Controller
                     'password' => bcrypt(Str::random(16)),
                 ]
             );
+
+            try {
+                AppUser::syncFromIdentity($microsoftUser->getEmail(), $microsoftUser->getName());
+            } catch (\Throwable $e) {
+                report($e);
+            }
 
             Auth::login($user);
 

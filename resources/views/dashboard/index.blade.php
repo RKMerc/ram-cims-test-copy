@@ -1,47 +1,32 @@
 @extends('layouts.app')
 
+@section('title', 'RAM-CIMS - Dashboard')
+
 @section('content')
-<div class="container py-4">
-    <!-- Header Section -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="h3 fw-bold text-dark mb-1">Clinic Dashboard</h1>
-            <p class="text-muted mb-0">Overview of clinical metrics and inventory status.</p>
-        </div>
-    </div>
+<div class="mb-4">
+    <p class="text-uppercase fw-bold mb-1" style="color:#003B7A; letter-spacing:.08em; font-size:.78rem;">Asia Pacific College</p>
+    <h1 class="h3 fw-bold mb-1" style="color:#003B7A;">Clinic Dashboard</h1>
+    <p class="text-muted mb-0">Today’s visits, upcoming schedules, and supplies that need attention.</p>
+</div>
 
-    <!-- Metric Cards Row -->
-    <div class="row g-4 mb-4">
-        <!-- Appointments Today -->
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100 border-start border-primary border-4">
-                <div class="card-body">
-                    <h6 class="text-muted fw-semibold text-uppercase fs-7 mb-2">Appointments Today</h6>
-                    <div class="d-flex align-items-center justify-content-between">
-                        <h2 class="fw-bold mb-0 text-dark">{{ $data['totalAppointmentsToday'] ?? 0 }}</h2>
-                        <div class="rounded-circle bg-primary bg-opacity-10 p-3 text-primary">
-                            📅
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Total Appointments -->
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100 border-start border-success border-4">
-                <div class="card-body">
-                    <h6 class="text-muted fw-semibold text-uppercase fs-7 mb-2">Total Appointments</h6>
-                    <div class="d-flex align-items-center justify-content-between">
-                        <h2 class="fw-bold mb-0 text-dark">{{ $data['totalAppointments'] ?? 0 }}</h2>
-                        <div class="rounded-circle bg-success bg-opacity-10 p-3 text-success">
-                            📊
-                        </div>
-                    </div>
-                </div>
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card h-100 border-start border-4" style="border-color:#003B7A !important;">
+            <div class="card-body">
+                <h6 class="text-muted fw-semibold text-uppercase mb-2" style="font-size:.78rem; letter-spacing:.04em;">Appointments Today</h6>
+                <h2 class="fw-bold mb-0" style="color:#003B7A;">{{ $data['totalAppointmentsToday'] ?? 0 }}</h2>
             </div>
         </div>
     </div>
+    <div class="col-md-6">
+        <div class="card h-100 border-start border-4" style="border-color:#E1B11A !important;">
+            <div class="card-body">
+                <h6 class="text-muted fw-semibold text-uppercase mb-2" style="font-size:.78rem; letter-spacing:.04em;">Total Appointments</h6>
+                <h2 class="fw-bold mb-0" style="color:#003B7A;">{{ $data['totalAppointments'] ?? 0 }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
 
     <!-- Upcoming Appointments Table -->
     <div class="card border-0 shadow-sm mb-4">
@@ -121,5 +106,4 @@
             </table>
         </div>
     </div>
-</div>
 @endsection
