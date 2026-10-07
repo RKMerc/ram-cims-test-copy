@@ -411,4 +411,71 @@
         color: #5c6b82;
         font-size: 0.9rem;
     }
+
+    .guest-card-roles {
+        width: min(760px, 100%);
+    }
+
+    .role-folders {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-top: 1.5rem;
+        text-align: left;
+    }
+
+    .role-folder-tab {
+        display: inline-block;
+        margin: 0;
+        background: #003B7A;
+        color: #fff;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 0.42rem 1rem 0.38rem;
+        border-radius: 12px 12px 0 0;
+    }
+
+    .role-folder-staff .role-folder-tab {
+        background: #E1B11A;
+        color: #10243f;
+    }
+
+    .role-folder-body {
+        display: flex;
+        flex-direction: column;
+        gap: 0.9rem;
+        min-height: 168px;
+        background: #f7f9fc;
+        border: 1px solid #d5deea;
+        border-radius: 0 16px 16px 16px;
+        padding: 1rem 0.95rem 0.95rem;
+    }
+
+    .role-folder-body h3 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        line-height: 1.3;
+        color: #10243f;
+    }
+
+    .role-folder-body p {
+        margin: 0;
+        color: #3d4f68;
+        flex: 1;
+    }
+
+    .role-folder-body .btn {
+        margin-top: auto;
+        white-space: normal;
+        line-height: 1.25;
+    }
+
+    @media (max-width: 680px) {
+        .role-folders {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
