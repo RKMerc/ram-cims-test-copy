@@ -21,13 +21,15 @@ if (app()->environment('local')) {
 }
 
 Route::post('/users', [UserAccountController::class, 'store']);
-Route::post('/ramsey/ask', [RamseyController::class, 'ask']);
-Route::post('/ramsey/remind', [RamseyController::class, 'remind']);
 
 Route::get('/auth/microsoft', [MicrosoftController::class, 'redirectToMicrosoft'])->name('auth.microsoft');
 Route::get('/auth/microsoft/callback', [MicrosoftController::class, 'handleMicrosoftCallback']);
 
 Route::middleware('auth')->group(function () {
+    Route::post('/ramsey/ask', [RamseyController::class, 'ask'])->name('ramsey.ask');
+    Route::post('/ramsey/remind', [RamseyController::class, 'remind'])->name('ramsey.remind');
+    Route::post('/ramsey/view', [RamseyController::class, 'view'])->name('ramsey.view');
+
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
     Route::get('/visit-history', [VisitHistoryController::class, 'index'])->name('visit-history');
@@ -63,5 +65,7 @@ Route::middleware('auth')->group(function () {
         Route::put('/users/{id}', [UserAccountController::class, 'update']);
 
         Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');
+        Route::get('/analytics/report', [AnalyticsController::class, 'report'])->name('analytics.report');
+        Route::get('/analytics/report/download', [AnalyticsController::class, 'download'])->name('analytics.report.download');
     });
 });

@@ -69,6 +69,13 @@ class ClinicPortalTest extends TestCase
         $dashboard->assertSee('Visit History');
         $dashboard->assertSee('Profile');
         $dashboard->assertSee('+ Schedule Check-Up');
+        $dashboard->assertSee('RAMsey Student Health Assistant');
+        $dashboard->assertSee('Your automated assistant for clinic appointment reminders, checking personal visit history, and navigating student health services. RAMsey cannot provide medical diagnoses or prescribe medication.');
+        $dashboard->assertSee('Schedule Check-Up');
+        $dashboard->assertSee('View My Latest Visit Summary');
+        $dashboard->assertSee('View My Active Prescriptions');
+        $dashboard->assertDontSee('RAMsey Clinic Operations Assistant');
+        $dashboard->assertDontSee('Dev preview');
         $dashboard->assertDontSee('APC Clinic Operations Dashboard');
         $dashboard->assertDontSee('Other Patient');
         $dashboard->assertDontSee('>Inventory<');
@@ -79,6 +86,8 @@ class ClinicPortalTest extends TestCase
         $this->actingAs($user)->get('/medical-records')->assertRedirect(route('dashboard'));
         $this->actingAs($user)->get('/records')->assertRedirect(route('dashboard'));
         $this->actingAs($user)->get('/analytics')->assertRedirect(route('dashboard'));
+        $this->actingAs($user)->get('/analytics/report')->assertRedirect(route('dashboard'));
+        $this->actingAs($user)->get('/analytics/report/download')->assertRedirect(route('dashboard'));
         $this->actingAs($user)->post('/dashboard/next-patient')->assertRedirect(route('dashboard'));
 
         $appointments = $this->actingAs($user)->get('/appointments');
@@ -151,6 +160,11 @@ class ClinicPortalTest extends TestCase
         $dashboard->assertSee('Inventory');
         $dashboard->assertSee('Medical Records');
         $dashboard->assertSee('Analytics');
+        $dashboard->assertSee('RAMsey Clinic Operations Assistant');
+        $dashboard->assertSee('Your operational copilot for clinic workflow shortcuts, low-stock inventory alerts, queue summary updates, and report generation assistance.');
+        $dashboard->assertSee('Show items below minimum threshold');
+        $dashboard->assertSee('Generate Clinic Visit Report');
+        $dashboard->assertDontSee('RAMsey Student Health Assistant');
         $dashboard->assertDontSee('Visit History');
         $dashboard->assertDontSee('Welcome, Mina');
 
@@ -172,7 +186,7 @@ class ClinicPortalTest extends TestCase
     {
         $user = $this->signIn('Employee', 'juan@apc.edu.ph', 'Juan', 'Dela Cruz', 'EMP-200');
 
-        $this->actingAs($user)->get('/dashboard')->assertSee('Welcome, Juan')->assertDontSee('APC Clinic Operations Dashboard');
+        $this->actingAs($user)->get('/dashboard')->assertSee('Welcome, Juan')->assertSee('RAMsey Student Health Assistant')->assertDontSee('APC Clinic Operations Dashboard');
         $this->actingAs($user)->get('/inventory')->assertRedirect(route('dashboard'));
     }
 
@@ -326,8 +340,295 @@ class ClinicPortalTest extends TestCase
         ]);
 
         $response->assertOk();
+        $response->assertJsonPath('reply', 'Sorry, this action is restricted to APC Clinic Staff.');
         $this->assertStringNotContainsString('/inventory', $response->getContent());
         $this->assertStringNotContainsString('/medical-records', $response->getContent());
+    }
+
+    public function test_ramsey_student_can_read_personal_records_and_not_clinic_operations(): void
+    {
+        $user = $this->signIn('Student', 'ana.ramsey@apc.edu.ph', 'Ana', 'Cruz', '2024100091');
+        AppUser::where('EmailAddress', 'ana.ramsey@apc.edu.ph')->update(['ContactNo' => '09171234567']);
+
+        MedicalRecord::create([
+            'MEDREC_CONSUL_DATE' => '2026-10-01',
+            'MEDREC_DIAGNOSIS' => 'Tension headache',
+            'MEDREC_NOTES' => 'Rest and fluids',
+            'MEDREC_MEDICINE_DOSAGE' => 'Paracetamol 500mg',
+            'PATIENT_ID' => 2024100091,
+            'APPT_ID' => 1,
+        ]);
+        MedicalRecord::create([
+            'MEDREC_CONSUL_DATE' => '2026-10-02',
+            'MEDREC_DIAGNOSIS' => 'Private sprain',
+            'MEDREC_NOTES' => 'Other chart',
+            'MEDREC_MEDICINE_DOSAGE' => 'Hidden medicine',
+            'PATIENT_ID' => 2024999999,
+            'APPT_ID' => 2,
+        ]);
+        Appointment::create([
+            'PATIENT_ID' => '2024100091',
+            'PATIENT_NAME' => 'Ana Cruz',
+            'APPOINTMENT_TYPE' => 'Check-up',
+            'APPOINTMENT_REASON' => 'Follow up',
+            'ATTENDING_PHYSICIAN' => 'Dr. Marciano Fidel L. Avendaño',
+            'SCHEDULED_AT' => now()->addDay(),
+            'STATUS' => 'Scheduled',
+        ]);
+
+        $visit = $this->actingAs($user)->postJson('/ramsey/ask', [
+            'message' => 'View My Latest Visit Summary',
+        ]);
+        $visit->assertOk();
+        $visit->assertSee('Tension headache');
+        $visit->assertSee('Paracetamol 500mg');
+        $visit->assertDontSee('Private sprain');
+        $visit->assertDontSee('Hidden medicine');
+        $this->assertStringContainsString('/visit-history', $visit->getContent());
+
+        $rx = $this->actingAs($user)->postJson('/ramsey/ask', [
+            'message' => 'View My Active Prescriptions',
+        ]);
+        $rx->assertOk();
+        $rx->assertSee('Paracetamol 500mg');
+        $rx->assertDontSee('Hidden medicine');
+
+        $contact = $this->actingAs($user)->postJson('/ramsey/ask', [
+            'message' => 'View My Vitals / Contact Info',
+        ]);
+        $contact->assertOk();
+        $contact->assertSee('09171234567');
+        $contact->assertSee('No vital signs are stored');
+
+        $book = $this->actingAs($user)->postJson('/ramsey/ask', [
+            'message' => 'Schedule Check-Up',
+        ]);
+        $book->assertOk();
+        $this->assertStringContainsString('Dr. Marciano Fidel L. Avendaño', $book->json('reply'));
+        $this->assertStringContainsString('/appointments', $book->getContent());
+        $this->assertStringNotContainsString('/inventory', $book->getContent());
+
+        foreach (['Show the analytics report', 'List other patients', 'Please prescribe medicine'] as $prompt) {
+            $blocked = $this->actingAs($user)->postJson('/ramsey/ask', ['message' => $prompt]);
+            $blocked->assertOk();
+            $blocked->assertJsonPath('reply', 'Sorry, this action is restricted to APC Clinic Staff.');
+            $this->assertStringNotContainsString('/analytics', $blocked->getContent());
+            $this->assertStringNotContainsString('/inventory', $blocked->getContent());
+        }
+    }
+
+    public function test_ramsey_staff_runs_operations_and_refuses_clinical_decisions(): void
+    {
+        $user = $this->signIn('Medical Staff', 'mina.ramsey@apc.edu.ph', 'Mina', 'Reyes', 'EMP-910', 'Nurse');
+
+        Appointment::create([
+            'PATIENT_ID' => '2024100108',
+            'PATIENT_NAME' => 'Carlo Santos',
+            'APPOINTMENT_TYPE' => 'Check-up',
+            'APPOINTMENT_REASON' => 'Fever',
+            'ATTENDING_PHYSICIAN' => 'Dr. Marciano Fidel L. Avendaño',
+            'SCHEDULED_AT' => now(),
+            'STATUS' => 'Scheduled',
+        ]);
+        Appointment::create([
+            'PATIENT_ID' => '2024100109',
+            'PATIENT_NAME' => 'Duty Patient',
+            'APPOINTMENT_TYPE' => 'Check-up',
+            'APPOINTMENT_REASON' => 'Slot',
+            'ATTENDING_PHYSICIAN' => 'Dr. Marciano Fidel L. Avendaño',
+            'SCHEDULED_AT' => '2026-10-08 14:00:00',
+            'STATUS' => 'Scheduled',
+        ]);
+        Inventory::create([
+            'ITEM_CODE' => 88001,
+            'GENERIC_NAME' => 'Paracetamol',
+            'BRAND_NAME' => 'Biogesic',
+            'ITEM_CATEGORY' => 'Medicine',
+            'ITEM_QUANTITY' => 3,
+            'ITEM_EXPIRATION_DATE' => now()->addMonth()->toDateString(),
+        ]);
+        Inventory::create([
+            'ITEM_CODE' => 88002,
+            'GENERIC_NAME' => 'Vitamin C',
+            'BRAND_NAME' => 'Poten Cee',
+            'ITEM_CATEGORY' => 'Medicine',
+            'ITEM_QUANTITY' => 40,
+            'ITEM_EXPIRATION_DATE' => now()->addMonth()->toDateString(),
+        ]);
+
+        $stock = $this->actingAs($user)->postJson('/ramsey/ask', [
+            'message' => 'Show items below minimum threshold',
+        ]);
+        $stock->assertOk();
+        $stock->assertSee('Paracetamol');
+        $stock->assertSee('3 left');
+        $stock->assertDontSee('Vitamin C');
+        $this->assertStringContainsString('/inventory', $stock->getContent());
+
+        $queue = $this->actingAs($user)->postJson('/ramsey/ask', [
+            'message' => 'Daily Queue Summary',
+        ]);
+        $queue->assertOk();
+        $queue->assertSee('Carlo Santos');
+        $queue->assertSee('waiting in today');
+
+        $duty = $this->actingAs($user)->postJson('/ramsey/ask', [
+            'message' => 'Doctor Duty Schedule Quick-Check',
+            'physician' => 'Dr. Marciano Fidel L. Avendaño',
+            'date' => '2026-10-08',
+        ]);
+        $duty->assertOk();
+        $duty->assertSee('AVAILABLE');
+        $duty->assertSee('OCCUPIED - Duty Patient');
+
+        $mode = $this->actingAs($user)->postJson('/ramsey/ask', [
+            'message' => 'Treatment-First Mode (TFM)',
+        ]);
+        $mode->assertOk();
+        $mode->assertSee('Treatment-first mode is now on');
+        $this->assertTrue((bool) session('clinic.treatment_first'));
+
+        $report = $this->actingAs($user)->postJson('/ramsey/ask', [
+            'message' => 'Generate Clinic Visit Report',
+        ]);
+        $report->assertOk();
+        $report->assertSee('Clinic visit report');
+        $day = today()->toDateString();
+        $this->assertSame('/analytics/report?from='.$day.'&to='.$day, $report->json('links.0.href'));
+        $this->assertSame('/analytics/report/download?from='.$day.'&to='.$day, $report->json('links.1.href'));
+
+        $clinical = $this->actingAs($user)->postJson('/ramsey/ask', [
+            'message' => 'Please diagnose this patient and prescribe medication',
+        ]);
+        $clinical->assertOk();
+        $clinical->assertJsonPath('reply', 'RAMsey is an operational assistant and cannot make clinical decisions, diagnose patients, or issue prescriptions. Please perform clinical entries manually.');
+    }
+
+    public function test_student_slot_alert_emails_when_a_duty_hour_is_open(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $user = $this->signIn('Student', 'ana.alert@apc.edu.ph', 'Ana', 'Cruz', '2024100092');
+
+        $closed = $this->actingAs($user)->postJson('/ramsey/remind', [
+            'email' => 'ana.alert@apc.edu.ph',
+            'physician' => 'Dr. Marciano Fidel L. Avendaño',
+            'date' => '2026-10-05',
+        ]);
+        $closed->assertOk();
+        $closed->assertSee('Your alert is saved');
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
+        $this->assertDatabaseHas('schedule_reminders', [
+            'email' => 'ana.alert@apc.edu.ph',
+            'note' => 'slot-watch|Dr. Marciano Fidel L. Avendaño|2026-10-05',
+            'notified_at' => null,
+        ]);
+
+        $open = $this->actingAs($user)->postJson('/ramsey/remind', [
+            'email' => 'ana.alert@apc.edu.ph',
+            'physician' => 'Dr. Marciano Fidel L. Avendaño',
+            'date' => '2026-10-08',
+        ]);
+        $open->assertOk();
+        $open->assertSee('I emailed ana.alert@apc.edu.ph');
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\SlotOpenAlert::class, function (\App\Mail\SlotOpenAlert $mail) {
+            return $mail->hasTo('ana.alert@apc.edu.ph')
+                && $mail->physician === 'Dr. Marciano Fidel L. Avendaño';
+        });
+    }
+
+    public function test_cancelling_a_full_duty_day_emails_the_waiting_slot_alert(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $student = $this->signIn('Student', 'ana.wait@apc.edu.ph', 'Ana', 'Cruz', '2024100093');
+        $staff = $this->signIn('Medical Staff', 'mina.wait@apc.edu.ph', 'Mina', 'Reyes', 'EMP-911', 'Nurse');
+        $physician = 'Dr. Marciano Fidel L. Avendaño';
+
+        foreach (['14:00:00', '15:00:00', '16:00:00'] as $start) {
+            Appointment::create([
+                'PATIENT_ID' => '2024100108',
+                'PATIENT_NAME' => 'Booked Patient '.$start,
+                'APPOINTMENT_TYPE' => 'Check-up',
+                'APPOINTMENT_REASON' => 'Filled hour',
+                'ATTENDING_PHYSICIAN' => $physician,
+                'SCHEDULED_AT' => '2026-10-08 '.$start,
+                'STATUS' => 'Scheduled',
+            ]);
+        }
+
+        $this->actingAs($student)->postJson('/ramsey/remind', [
+            'email' => 'ana.wait@apc.edu.ph',
+            'physician' => $physician,
+            'date' => '2026-10-08',
+        ])->assertOk()->assertSee('Your alert is saved');
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
+
+        $appointment = Appointment::query()->where('SCHEDULED_AT', '2026-10-08 14:00:00')->firstOrFail();
+        $this->app->forgetInstance(\App\Support\ClinicAccess::class);
+        $this->actingAs($staff)->post('/duty-slots/cancel', [
+            'practitioner' => $physician,
+            'duty_date' => '2026-10-08',
+            'start' => '14:00:00',
+            'appointment_id' => $appointment->APPOINTMENT_ID,
+            'return_to' => '/appointments',
+        ])->assertRedirect('/appointments');
+
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\SlotOpenAlert::class, function (\App\Mail\SlotOpenAlert $mail) {
+            return $mail->hasTo('ana.wait@apc.edu.ph');
+        });
+    }
+
+    public function test_developer_preview_can_switch_ramsey_views_only_when_local(): void
+    {
+        $user = $this->signIn('Student', 'ana.preview@apc.edu.ph', 'Ana', 'Cruz', '2024100094');
+
+        $this->actingAs($user)->postJson('/ramsey/view', ['view' => 'staff'])->assertForbidden();
+
+        $this->app['env'] = 'local';
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+
+        $staffView = $this->actingAs($user)->postJson('/ramsey/view', ['view' => 'staff']);
+        $staffView->assertOk();
+        $staffView->assertJsonPath('staff', true);
+        $staffView->assertJsonPath('title', 'RAMsey Clinic Operations Assistant');
+
+        $this->actingAs($user)->postJson('/ramsey/ask', [
+            'message' => 'Where is the inventory?',
+        ])->assertOk()->assertSee('Open Inventory Manager');
+
+        $studentView = $this->actingAs($user)->postJson('/ramsey/view', ['view' => 'student']);
+        $studentView->assertOk();
+        $studentView->assertJsonPath('staff', false);
+        $studentView->assertJsonPath('title', 'RAMsey Student Health Assistant');
+
+        $this->actingAs($user)->postJson('/ramsey/ask', [
+            'message' => 'Where is the inventory?',
+        ])->assertJsonPath('reply', 'Sorry, this action is restricted to APC Clinic Staff.');
+    }
+
+    public function test_staff_can_view_and_download_the_analytics_pdf(): void
+    {
+        $user = $this->signIn('Medical Staff', 'mina.report@apc.edu.ph', 'Mina', 'Reyes', 'EMP-901', 'Nurse');
+
+        Appointment::create([
+            'PATIENT_ID' => '2024100101',
+            'PATIENT_NAME' => 'Report Patient',
+            'APPOINTMENT_TYPE' => 'Check-up',
+            'APPOINTMENT_REASON' => 'Fever',
+            'ATTENDING_PHYSICIAN' => 'Dr. Marciano Fidel L. Avendaño',
+            'SCHEDULED_AT' => '2026-10-08 14:00:00',
+            'STATUS' => 'Scheduled',
+        ]);
+
+        $view = $this->actingAs($user)->get('/analytics/report?from=2026-10-08&to=2026-10-08&physician='.urlencode('Dr. Marciano Fidel L. Avendaño'));
+        $view->assertOk();
+        $view->assertHeader('content-type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF', $view->getContent());
+
+        $download = $this->actingAs($user)->get('/analytics/report/download?from=2026-10-08&to=2026-10-08');
+        $download->assertOk();
+        $download->assertHeader('content-type', 'application/pdf');
+        $this->assertStringContainsString('attachment', (string) $download->headers->get('content-disposition'));
+        $this->assertStringContainsString('APC-Clinic-Analytics-Report-2026-10-08.pdf', (string) $download->headers->get('content-disposition'));
     }
 
     private function signIn(string $typeName, string $email, string $first, string $last, ?string $number = null, ?string $subName = null): User

@@ -278,8 +278,8 @@
         right: 1.25rem;
         bottom: 5rem;
         z-index: 1040;
-        width: min(380px, calc(100vw - 1.5rem));
-        height: min(540px, calc(100vh - 7rem));
+        width: min(420px, calc(100vw - 1.5rem));
+        height: min(680px, calc(100vh - 6.5rem));
         background: #fff;
         border-radius: 18px;
         box-shadow: 0 24px 50px rgba(1, 45, 96, 0.22);
@@ -294,17 +294,51 @@
         background: #003B7A;
         border-bottom: 3px solid #E1B11A;
         color: #fff;
-        padding: 0.9rem 1rem;
+        padding: 0.85rem 1rem;
         display: flex;
         justify-content: space-between;
-        align-items: center;
-        gap: 1rem;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .ramsey-head strong {
+        display: block;
+        line-height: 1.25;
+        font-size: 0.98rem;
     }
 
     .ramsey-head p {
-        margin: 0;
-        color: rgba(255, 255, 255, 0.75);
-        font-size: 0.82rem;
+        margin: 0.25rem 0 0;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 0.75rem;
+        line-height: 1.35;
+    }
+
+    .ramsey-role {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        padding: 0.45rem 0.75rem;
+        background: #f8f1d4;
+        color: #003B7A;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+
+    .ramsey-role button {
+        border: 1px solid #003B7A;
+        background: #fff;
+        color: #003B7A;
+        border-radius: 999px;
+        padding: 0.15rem 0.55rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+
+    .ramsey-role button.is-active {
+        background: #003B7A;
+        color: #fff;
     }
 
     .ramsey-close {
@@ -315,8 +349,17 @@
         line-height: 1;
     }
 
+    .ramsey-body {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+    }
+
     .ramsey-log {
         flex: 1;
+        min-height: 6rem;
         overflow: auto;
         padding: 1rem;
         background:
@@ -355,50 +398,75 @@
     }
 
     .ramsey-links a,
-    .ramsey-chips button,
-    .ramsey-remind button {
+    .ramsey-chips button {
         border: 1px solid #E1B11A;
         background: #fff;
         color: #003B7A;
         border-radius: 999px;
         padding: 0.25rem 0.7rem;
-        font-size: 0.82rem;
+        font-size: 0.78rem;
         font-weight: 600;
         text-decoration: none;
+        text-align: left;
     }
 
     .ramsey-chips {
         display: flex;
         flex-wrap: wrap;
         gap: 0.4rem;
-        padding: 0 1rem 0.75rem;
+        padding: 0.75rem 0.75rem 0.35rem;
     }
 
-    .ramsey-form,
-    .ramsey-remind {
+    .ramsey-tools {
+        display: grid;
+        gap: 0.35rem;
+        padding: 0.35rem 0.75rem 0.75rem;
+    }
+
+    .ramsey-tools[hidden] { display: none !important; }
+
+    .ramsey-tools p {
+        margin: 0;
+        color: #003B7A;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+
+    .ramsey-tools select,
+    .ramsey-tools input {
+        width: 100%;
+        border: 1px solid #d5deea;
+        border-radius: 10px;
+        padding: 0.35rem 0.6rem;
+        font-size: 0.82rem;
+        background: #fff;
+    }
+
+    .ramsey-tools button,
+    .ramsey-form button {
+        border: 0;
+        border-radius: 999px;
+        background: #003B7A;
+        color: #fff;
+        font-weight: 700;
+        padding: 0.4rem 0.85rem;
+        justify-self: start;
+    }
+
+    .ramsey-form {
         display: flex;
+        flex-shrink: 0;
         gap: 0.45rem;
         padding: 0.75rem;
         border-top: 1px solid #e6ebf3;
         background: #fff;
     }
 
-    .ramsey-form input,
-    .ramsey-remind input {
+    .ramsey-form input {
         flex: 1;
         border: 1px solid #d5deea;
         border-radius: 999px;
         padding: 0.45rem 0.8rem;
-    }
-
-    .ramsey-form button,
-    .ramsey-remind button[type="submit"] {
-        border: 0;
-        border-radius: 999px;
-        background: #003B7A;
-        color: #fff;
-        font-weight: 700;
-        padding: 0.45rem 0.9rem;
     }
 
     .guest-shell {

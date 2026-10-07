@@ -6,6 +6,7 @@ use App\Models\Appointment;
 use App\Models\DoctorSchedule;
 use App\Models\ScheduleReminder;
 use App\Support\ClinicAccess;
+use App\Support\ScheduleAlerts;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
@@ -67,11 +68,14 @@ class AppointmentController extends Controller
             'NOTES'          => 'nullable|string'
         ]);
 
-        DoctorSchedule::create($validated);
-
         $waiting = ScheduleReminder::whereNull('notified_at')->count();
+        DoctorSchedule::create($validated);
+        $sent = ScheduleAlerts::release($validated['DOCTOR_NAME'], $validated['AVAILABLE_DATE'], true);
+
         $message = 'Doctor availability schedule added!';
-        if ($waiting > 0) {
+        if ($sent > 0) {
+            $message .= ' '.$sent.' email alert'.($sent === 1 ? ' was' : 's were').' sent.';
+        } elseif ($waiting > 0) {
             $message .= ' '.$waiting.' email reminder'.($waiting === 1 ? '' : 's').' are waiting for an opening.';
         }
 

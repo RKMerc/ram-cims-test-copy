@@ -1,4 +1,4 @@
 <option value="" @selected(empty($selected ?? null))>Select unit</option>
-@foreach(['Pill', 'Syrup', 'Capsule', 'Drops', 'Cream', 'Injection'] as $unit)
+@foreach(['Liter (L)', 'Milliliter (mL)', 'Gram (g)', 'Milligram (mg)', 'Pieces / Pcs'] as $unit)
     <option value="{{ $unit }}" @selected(($selected ?? null) === $unit)>{{ $unit }}</option>
 @endforeach

@@ -31,6 +31,7 @@
                             <th>Generic Name</th>
                             <th>Brand Name</th>
                             <th>Dosage</th>
+                            <th>Form</th>
                             <th>Category</th>
                             <th>Quantity On Hand</th>
                             <th>Expiration Date</th>
@@ -44,6 +45,7 @@
                                 <td class="fw-semibold text-secondary">{{ $item->GENERIC_NAME }}</td>
                                 <td class="text-muted"><em>{{ $item->BRAND_NAME ?? 'N/A' }}</em></td>
                                 <td>{{ trim(($item->ITEM_DOSAGE ?: '').' '.($item->ITEM_UNIT ?: '')) ?: 'N/A' }}</td>
+                                <td>{{ $item->ITEM_FORM ?: 'N/A' }}</td>
                                 <td><span class="fw-semibold text-secondary">{{ $item->ITEM_CATEGORY }}</span></td>
                                 <td class="fw-bold {{ $item->ITEM_QUANTITY < 10 ? 'text-danger' : 'text-success' }}">
                                     {{ $item->ITEM_QUANTITY }} pcs
@@ -59,6 +61,7 @@
                                         data-brand="{{ $item->BRAND_NAME }}"
                                         data-dosage="{{ $item->ITEM_DOSAGE }}"
                                         data-unit="{{ $item->ITEM_UNIT }}"
+                                        data-form="{{ $item->ITEM_FORM }}"
                                         data-category="{{ $item->ITEM_CATEGORY }}"
                                         data-quantity="{{ $item->ITEM_QUANTITY }}"
                                         data-expiration="{{ $item->ITEM_EXPIRATION_DATE }}">
@@ -68,7 +71,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center py-5 text-muted">No campus clinic supplies recorded yet.</td>
+                                <td colspan="9" class="text-center py-5 text-muted">No campus clinic supplies recorded yet.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -117,6 +120,12 @@
                             <label for="ITEM_UNIT" class="form-label fw-semibold mt-2">Unit</label>
                             <select class="form-select" id="ITEM_UNIT" name="ITEM_UNIT">
                                 @include('partials.dosage-unit-options')
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="ITEM_FORM" class="form-label fw-semibold">Form</label>
+                            <select class="form-select" id="ITEM_FORM" name="ITEM_FORM">
+                                @include('partials.dosage-form-options')
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -178,6 +187,12 @@
                             </select>
                         </div>
                         <div class="col-md-6">
+                            <label for="edit_ITEM_FORM" class="form-label fw-semibold">Form</label>
+                            <select class="form-select" id="edit_ITEM_FORM" name="ITEM_FORM">
+                                @include('partials.dosage-form-options')
+                            </select>
+                        </div>
+                        <div class="col-md-6">
                             <label for="edit_ITEM_QUANTITY" class="form-label fw-semibold">Quantity</label>
                             <input type="number" class="form-control" id="edit_ITEM_QUANTITY" name="ITEM_QUANTITY" min="0" required>
                         </div>
@@ -215,6 +230,7 @@
                     const brand = button.getAttribute('data-brand') || '';
                     const dosage = button.getAttribute('data-dosage') || '';
                     const unit = button.getAttribute('data-unit') || '';
+                    const form = button.getAttribute('data-form') || '';
                     const category = button.getAttribute('data-category') || '';
                     const quantity = button.getAttribute('data-quantity') || '0';
                     const expiration = button.getAttribute('data-expiration') || '';
@@ -229,6 +245,11 @@
                         unitSelect.add(new Option(unit, unit));
                     }
                     unitSelect.value = unit;
+                    const formSelect = document.getElementById('edit_ITEM_FORM');
+                    if (form && ![...formSelect.options].some(option => option.value === form)) {
+                        formSelect.add(new Option(form, form));
+                    }
+                    formSelect.value = form;
                     document.getElementById('edit_ITEM_CATEGORY').value = category;
                     document.getElementById('edit_ITEM_QUANTITY').value = quantity;
 
@@ -242,7 +263,6 @@
                 });
             }
 
-            // Submit edit form via PUT AJAX request
             const editForm = document.getElementById('editItemForm');
             if (editForm) {
                 editForm.addEventListener('submit', function (e) {

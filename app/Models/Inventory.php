@@ -22,6 +22,7 @@ class Inventory extends Model
         'BRAND_NAME',
         'ITEM_DOSAGE',
         'ITEM_UNIT',
+        'ITEM_FORM',
         'ITEM_CATEGORY',
         'ITEM_QUANTITY',
         'ITEM_EXPIRATION_DATE'
