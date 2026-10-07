@@ -413,15 +413,19 @@
     }
 
     .guest-card-roles {
-        width: min(760px, 100%);
+        width: min(460px, 100%);
     }
 
     .role-folders {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
         gap: 1rem;
         margin-top: 1.5rem;
         text-align: left;
+    }
+
+    .role-folder {
+        margin-top: 1.5rem;
     }
 
     .role-folder-tab {
@@ -437,23 +441,24 @@
         border-radius: 12px 12px 0 0;
     }
 
-    .role-folder-staff .role-folder-tab {
-        background: #E1B11A;
-        color: #10243f;
-    }
-
     .role-folder-body {
         display: flex;
         flex-direction: column;
-        gap: 0.9rem;
-        min-height: 168px;
+        gap: 0.45rem;
+        min-height: 0;
         background: #f7f9fc;
         border: 1px solid #d5deea;
-        border-radius: 0 16px 16px 16px;
+        border-radius: 16px;
         padding: 1rem 0.95rem 0.95rem;
     }
 
-    .role-folder-body h3 {
+    .guest-card-roles .guest-actions {
+        width: min(420px, 100%);
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .role-folder-body h2 {
         margin: 0;
         font-size: 1.05rem;
         font-weight: 700;
@@ -473,9 +478,4 @@
         line-height: 1.25;
     }
 
-    @media (max-width: 680px) {
-        .role-folders {
-            grid-template-columns: 1fr;
-        }
-    }
 </style>
