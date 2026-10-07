@@ -263,26 +263,9 @@
             </div>
             <div class="modal-body row g-3">
                 
-                <!-- Attending Physician mapped to AppUser / MedicalStaff -->
                 <div class="col-12">
                     <label class="form-label fw-semibold">Attending Physician</label>
-                    <select name="AttendingStaff_AppUser_Id" class="form-select rounded-2" required>
-                        <option value="" selected disabled>Select doctor...</option>
-                        @foreach($doctors as $doctor)
-                            <option value="{{ $doctor->id }}">Dr. {{ $doctor->LastName }}, {{ $doctor->FirstName }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <!-- Appointment Type mapped to AppointmentType table ID -->
-                <div class="col-12">
-                    <label class="form-label fw-semibold">Appointment Type (Category)</label>
-                    <select name="AppointmentType_Id" class="form-select rounded-2" required>
-                        <option value="" selected disabled>Select type...</option>
-                        @foreach($appointmentTypes as $type)
-                            <option value="{{ $type->id }}">{{ $type->Label }}</option>
-                        @endforeach
-                    </select>
+                    <input type="text" name="DOCTOR_NAME" class="form-control rounded-2" placeholder="Dr. Last Name" required>
                 </div>
 
                 <div class="col-12">
@@ -320,7 +303,7 @@
 
                 <div class="col-12">
                     <label class="form-label fw-semibold">Details / Notes</label>
-                    <input type="text" name="Details" class="form-control rounded-2" placeholder="General Consultation / Special notes">
+                    <input type="text" name="NOTES" class="form-control rounded-2" placeholder="General Consultation / Special notes">
                 </div>
             </div>
             <div class="modal-footer">
