@@ -19,7 +19,7 @@ class RamseyController extends Controller
             return $this->reply(
                 'User accounts are stored in the Data Tier, in the AppUser table. Each account keeps the student or employee number, first name, last name, middle name, email, contact number, and UserTypeId. Role access is linked through UserType, SubUserType, and AppUser_MedicalStaff. Sign-in uses Microsoft SSO with APC credentials, then POST /users saves the account.',
                 [
-                    ['label' => 'Sign in', 'href' => '/login'],
+                    ['label' => 'Sign in', 'href' => '/'],
                 ]
             );
         }

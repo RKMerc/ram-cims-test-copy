@@ -45,7 +45,7 @@ class MicrosoftController extends Controller
 
             return redirect()->intended('/dashboard');
         } catch (\Exception $e) {
-            return redirect('/login')->with('error', 'Microsoft authentication failed. Please try again.');
+            return redirect()->route('login')->with('error', 'Microsoft authentication failed. Please try again.');
         }
     }
 }

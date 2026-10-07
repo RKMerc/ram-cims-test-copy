@@ -9,9 +9,7 @@ use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\RamseyController;
 use App\Http\Controllers\UserAccountController;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', [MicrosoftController::class, 'showLoginForm'])->name('login');
 
 Route::resource('inventory', InventoryController::class)->only([
     'index', 'store', 'update'
@@ -31,6 +29,5 @@ Route::post('/users', [UserAccountController::class, 'store']);
 Route::post('/ramsey/ask', [RamseyController::class, 'ask']);
 Route::post('/ramsey/remind', [RamseyController::class, 'remind']);
 
-Route::get('/login', [MicrosoftController::class, 'showLoginForm'])->name('login');
 Route::get('/auth/microsoft', [MicrosoftController::class, 'redirectToMicrosoft'])->name('auth.microsoft');
 Route::get('/auth/microsoft/callback', [MicrosoftController::class, 'handleMicrosoftCallback']);
