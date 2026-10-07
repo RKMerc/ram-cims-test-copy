@@ -152,24 +152,31 @@
         border-radius: 999px;
     }
 
-    .dev-mode-badge {
-        display: inline-flex;
-        align-items: center;
-        background: #E1B11A;
-        color: #003B7A;
-        font-weight: 700;
-        font-size: .72rem;
-        letter-spacing: .03em;
-        line-height: 1.2;
-        padding: .45rem .75rem;
-        border-radius: 999px;
-        white-space: nowrap;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, .18);
+    .modal-content .form-control,
+    .modal-content .form-select {
+        background-color: #fff;
     }
 
-    .duty-row-live { cursor: pointer; }
-    .duty-badge-available { background: #28A745 !important; }
-    .duty-badge-closed { background: #6C757D !important; }
+    .duty-grid th,
+    .duty-grid td { vertical-align: middle; }
+    .duty-open { background: #D4EDDA !important; color: #155724; }
+    .duty-closed { background: #E2E3E5 !important; color: #383D41; }
+    .duty-cell-btn {
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font-weight: 700;
+        letter-spacing: .03em;
+        width: 100%;
+        padding: .85rem .35rem;
+    }
+    .duty-cell-label {
+        display: block;
+        font-weight: 700;
+        letter-spacing: .02em;
+        padding: .85rem .35rem;
+        font-size: .78rem;
+    }
 
     .app-links a:hover,
     .app-links a.active {

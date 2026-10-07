@@ -4,7 +4,6 @@
 
 @section('content')
 <div class="mb-4">
-    <p class="text-uppercase fw-bold mb-1" style="color:#003B7A; letter-spacing:.08em; font-size:.78rem;">Developer Mode</p>
     <h1 class="h3 fw-bold mb-1" style="color:#003B7A;">User Accounts</h1>
     <p class="text-muted mb-0">Update clinic accounts, roles, and medical-staff credentials.</p>
 </div>

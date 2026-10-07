@@ -26,17 +26,11 @@
                     <a class="{{ request()->is('inventory') || request()->is('inventory/*') ? 'active' : '' }}" href="{{ url('/inventory') }}">Inventory</a>
                     <a class="{{ request()->is('medical-records') || request()->is('records') || request()->is('records/*') ? 'active' : '' }}" href="{{ url('/medical-records') }}">Medical Records</a>
                     <a class="{{ request()->is('analytics') ? 'active' : '' }}" href="{{ route('analytics') }}">Analytics</a>
-                    @if($developerMode ?? false)
-                        <a class="{{ request()->is('users') ? 'active' : '' }}" href="{{ route('users.index') }}">User Accounts</a>
-                    @endif
                 @else
                     <a class="{{ request()->is('visit-history') ? 'active' : '' }}" href="{{ route('visit-history') }}">Visit History</a>
                     <a class="{{ request()->is('profile') ? 'active' : '' }}" href="{{ route('profile') }}">Profile</a>
                 @endif
             </nav>
-            @if($developerMode ?? false)
-                <span class="dev-mode-badge" role="status">DEV MODE: FULL PERMISSIONS ACTIVE</span>
-            @endif
             </div>
         </div>
     </header>
@@ -63,6 +57,11 @@
 
     @include('partials.ramsey')
 
+    <script>
+        document.querySelectorAll('.modal').forEach(function (modal) {
+            document.body.appendChild(modal);
+        });
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     @stack('scripts')
 </body>

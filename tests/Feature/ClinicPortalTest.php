@@ -267,24 +267,31 @@ class ClinicPortalTest extends TestCase
         $page->assertOk();
         $page->assertSee('Select attending physician');
         $page->assertSee('Mina Reyes');
-        $page->assertSee('Select Medical Staff / Practitioner');
+        $page->assertSee('Select Doctor / Attending Physician');
         $page->assertSee('Dr. Marciano Fidel L. Avendaño - Doctor');
         $page->assertSee('value="'.Appointment::nextPatientId().'"', false);
     }
 
-    public function test_duty_board_books_an_open_slot_and_keeps_status_toggles_in_developer_mode(): void
+    public function test_weekly_duty_grid_follows_appointments_and_duty_days(): void
     {
         $user = $this->signIn('Medical Staff', 'mina.duty@apc.edu.ph', 'Mina', 'Reyes', 'EMP-301', 'Nurse');
         $name = 'Dr. Marciano Fidel L. Avendaño';
-        $return = '/appointments?practitioner='.urlencode($name).'&duty_date=2026-10-08';
+        $return = '/appointments?practitioner='.urlencode($name).'&week=2026-10-08';
 
         $page = $this->actingAs($user)->get($return);
         $page->assertOk();
-        $page->assertSee('2:00 PM - 2:30 PM');
-        $page->assertSee('Available');
-        $page->assertSee('8:00 AM - 8:30 AM');
-        $page->assertSee('Off Duty / Not Available');
-        $page->assertDontSee('DEV MODE: FULL PERMISSIONS ACTIVE');
+        $page->assertSee('Doctor Duty Schedule & Availability');
+        $page->assertSee('Select Doctor / Attending Physician');
+        $page->assertSee('TIMESLOT');
+        $page->assertSee('Monday');
+        $page->assertSee('Friday');
+        $page->assertSee('8:00 AM - 9:00 AM');
+        $page->assertSee('4:00 PM - 5:00 PM');
+        $page->assertSee('AVAILABLE');
+        $page->assertSee('NOT AVAILABLE');
+        $page->assertDontSee('DEV MODE');
+        $page->assertDontSee('Developer Mode');
+        $page->assertDontSee('Toggle Status');
 
         $this->actingAs($user)->post('/duty-slots/book', [
             'practitioner' => $name,
@@ -303,13 +310,11 @@ class ClinicPortalTest extends TestCase
         ]);
 
         $booked = $this->actingAs($user)->get($return);
-        $booked->assertSee('Occupied - Test Patient');
+        $booked->assertSee('OCCUPIED - Test Patient');
 
-        $this->actingAs($user)->postJson('/duty-slots/toggle', [
-            'practitioner' => $name,
-            'duty_date' => '2026-10-08',
-            'start' => '14:30:00',
-        ])->assertForbidden();
+        Appointment::query()->where('PATIENT_NAME', 'Test Patient')->update(['STATUS' => 'Cancelled']);
+
+        $this->actingAs($user)->get($return)->assertDontSee('OCCUPIED - Test Patient');
     }
 
     public function test_ramsey_does_not_send_students_to_inventory(): void

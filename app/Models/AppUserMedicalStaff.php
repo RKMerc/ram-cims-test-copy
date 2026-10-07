@@ -15,6 +15,19 @@ class AppUserMedicalStaff extends Model
         'AppUserId',
         'SubUserTypeId',
         'LicenseNo',
+        'IsMonday',
+        'IsTuesday',
+        'IsWednesday',
+        'IsThursday',
+        'IsFriday',
+    ];
+
+    protected $casts = [
+        'IsMonday' => 'boolean',
+        'IsTuesday' => 'boolean',
+        'IsWednesday' => 'boolean',
+        'IsThursday' => 'boolean',
+        'IsFriday' => 'boolean',
     ];
 
     public function user(): BelongsTo

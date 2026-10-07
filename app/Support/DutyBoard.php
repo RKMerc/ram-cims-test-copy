@@ -42,6 +42,128 @@ class DutyBoard
             ->all();
     }
 
+    public function week(string $name, Carbon $monday): array
+    {
+        $monday = $monday->copy()->startOfWeek(Carbon::MONDAY)->startOfDay();
+        $flags = $this->dayFlags($name);
+        $rostered = ClinicRoster::isRostered($name);
+        $days = [];
+
+        for ($offset = 0; $offset < 5; $offset++) {
+            $date = $monday->copy()->addDays($offset);
+            $iso = $date->dayOfWeekIso;
+            $days[] = [
+                'name' => $date->format('l'),
+                'date' => $date->toDateString(),
+                'works' => (bool) ($flags[$iso] ?? false),
+            ];
+        }
+
+        $appointments = Appointment::query()
+            ->where('ATTENDING_PHYSICIAN', $name)
+            ->whereDate('SCHEDULED_AT', '>=', $days[0]['date'])
+            ->whereDate('SCHEDULED_AT', '<=', $days[4]['date'])
+            ->whereRaw("LOWER(COALESCE(STATUS, '')) != 'cancelled'")
+            ->orderBy('SCHEDULED_AT')
+            ->get();
+
+        $rows = [];
+
+        for ($hour = 8; $hour <= 16; $hour++) {
+            $sample = $monday->copy()->setTime($hour, 0);
+            $cells = [];
+
+            foreach ($days as $day) {
+                $start = Carbon::parse($day['date'])->setTime($hour, 0);
+                $end = $start->copy()->addHour();
+                $booked = $this->bookedDuring($appointments, $start, $end);
+                $onShift = $day['works'] && (! $rostered || ClinicRoster::covers($name, $start, $end));
+
+                if ($booked->isNotEmpty()) {
+                    $patient = $booked->pluck('PATIENT_NAME')->implode(', ');
+                    $cells[] = [
+                        'open' => false,
+                        'text' => 'OCCUPIED - '.$patient,
+                        'date' => $day['date'],
+                        'start' => $start->format('H:i:s'),
+                    ];
+                } elseif (! $onShift) {
+                    $cells[] = [
+                        'open' => false,
+                        'text' => 'NOT AVAILABLE',
+                        'date' => $day['date'],
+                        'start' => $start->format('H:i:s'),
+                    ];
+                } else {
+                    $cells[] = [
+                        'open' => true,
+                        'text' => 'AVAILABLE',
+                        'date' => $day['date'],
+                        'start' => $start->format('H:i:s'),
+                    ];
+                }
+            }
+
+            $rows[] = [
+                'label' => $sample->format('g:i A').' - '.$sample->copy()->addHour()->format('g:i A'),
+                'cells' => $cells,
+            ];
+        }
+
+        return [
+            'days' => $days,
+            'rows' => $rows,
+        ];
+    }
+
+    private function dayFlags(string $name): array
+    {
+        $roster = ClinicRoster::weekdayFlags($name);
+        $mapped = [
+            1 => $roster['IsMonday'],
+            2 => $roster['IsTuesday'],
+            3 => $roster['IsWednesday'],
+            4 => $roster['IsThursday'],
+            5 => $roster['IsFriday'],
+        ];
+
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('AppUser_MedicalStaff', 'IsMonday')) {
+            return $mapped;
+        }
+
+        $staff = $this->medicalStaffFor($name);
+
+        if (! $staff) {
+            return $mapped;
+        }
+
+        return [
+            1 => (bool) $staff->IsMonday,
+            2 => (bool) $staff->IsTuesday,
+            3 => (bool) $staff->IsWednesday,
+            4 => (bool) $staff->IsThursday,
+            5 => (bool) $staff->IsFriday,
+        ];
+    }
+
+    private function medicalStaffFor(string $name): ?\App\Models\AppUserMedicalStaff
+    {
+        $email = null;
+
+        foreach (ClinicRoster::accounts() as $account) {
+            if ($account['display'] === $name) {
+                $email = $account['email'];
+                break;
+            }
+        }
+
+        $user = $email
+            ? AppUser::query()->with('medicalStaff')->where('EmailAddress', $email)->first()
+            : AppUser::query()->with('medicalStaff')->get()->first(fn (AppUser $account) => $account->fullName() === $name);
+
+        return $user?->medicalStaff;
+    }
+
     public function slots(string $name, string $date): array
     {
         $day = Carbon::parse($date)->startOfDay();

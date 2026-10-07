@@ -115,6 +115,36 @@ class ClinicRoster
             ->implode("\n");
     }
 
+    public static function weekdayFlags(string $displayName): array
+    {
+        $days = [];
+
+        foreach (self::people() as $person) {
+            if ($person['name'] !== $displayName) {
+                continue;
+            }
+
+            foreach ($person['shifts'] as $shift) {
+                foreach ($shift['weekdays'] as $weekday) {
+                    $days[(int) $weekday] = true;
+                }
+            }
+        }
+
+        return [
+            'IsMonday' => isset($days[1]),
+            'IsTuesday' => isset($days[2]),
+            'IsWednesday' => isset($days[3]),
+            'IsThursday' => isset($days[4]),
+            'IsFriday' => isset($days[5]),
+        ];
+    }
+
+    public static function isRostered(string $name): bool
+    {
+        return collect(self::people())->contains(fn (array $person) => $person['name'] === $name);
+    }
+
     public static function covers(string $name, Carbon $start, Carbon $end): bool
     {
         $person = collect(self::people())->firstWhere('name', $name);
@@ -171,12 +201,16 @@ class ClinicRoster
                 continue;
             }
 
+            $dutyDays = Schema::hasColumn('AppUser_MedicalStaff', 'IsMonday')
+                ? self::weekdayFlags($account['display'])
+                : [];
+
             AppUserMedicalStaff::query()->updateOrCreate(
                 ['AppUserId' => $user->Id],
-                [
+                array_merge([
                     'SubUserTypeId' => $subId,
                     'LicenseNo' => null,
-                ]
+                ], $dutyDays)
             );
         }
     }

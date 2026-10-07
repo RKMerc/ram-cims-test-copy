@@ -43,9 +43,9 @@ class AppServiceProvider extends ServiceProvider
             }
 
             try {
-                $date = Carbon::parse(request('duty_date', today()->toDateString()))->toDateString();
+                $monday = Carbon::parse(request('week', today()->toDateString()))->startOfWeek(Carbon::MONDAY);
             } catch (\Throwable) {
-                $date = today()->toDateString();
+                $monday = today()->copy()->startOfWeek(Carbon::MONDAY);
             }
 
             $person = collect($practitioners)->firstWhere('name', $selected);
@@ -54,8 +54,11 @@ class AppServiceProvider extends ServiceProvider
                 'dutyPractitioners' => $practitioners,
                 'dutyPractitioner' => $selected,
                 'dutyPractitionerLabel' => $person['label'] ?? null,
-                'dutyDate' => $date,
-                'dutySlots' => $selected ? $board->slots($selected, $date) : [],
+                'weekStart' => $monday->toDateString(),
+                'weekLabel' => $monday->format('M j').' – '.$monday->copy()->addDays(4)->format('M j, Y'),
+                'previousWeek' => $monday->copy()->subWeek()->toDateString(),
+                'nextWeek' => $monday->copy()->addWeek()->toDateString(),
+                'dutyGrid' => $selected ? $board->week($selected, $monday) : ['days' => [], 'rows' => []],
             ]);
         });
     }

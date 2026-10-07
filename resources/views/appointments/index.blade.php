@@ -136,8 +136,12 @@
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Patient ID</label>
                     @if($isClinicStaff)
-                        <input type="text" name="PATIENT_ID" class="form-control" value="{{ $nextPatientId }}" required>
-                        <div class="form-text">Filled automatically. Replace it if this patient already has an ID.</div>
+                        @php
+                            $ownPatientId = $clinicAccount?->Student_Employee_No ?: $clinicAccount?->Id;
+                            $patientIdValue = ($clinicAccount && ! $clinicAccount->isClinicStaff()) ? $ownPatientId : $nextPatientId;
+                        @endphp
+                        <input type="text" name="PATIENT_ID" class="form-control" value="{{ $patientIdValue }}" required>
+                        <div class="form-text">Filled from the signed-in account. Replace it when booking for someone else.</div>
                     @else
                         <input type="text" name="PATIENT_ID" class="form-control" value="{{ $clinicAccount?->Student_Employee_No ?: $clinicAccount?->Id }}" readonly>
                     @endif
