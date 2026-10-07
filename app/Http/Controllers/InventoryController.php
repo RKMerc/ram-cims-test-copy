@@ -25,22 +25,16 @@ class InventoryController extends Controller
             'ITEM_EXPIRATION_DATE' => 'required|date',
         ]);
 
-        $item = Inventory::create($validated);
+        Inventory::create($validated);
 
-        return response()->json([
-            'status'  => 'Success',
-            'message' => 'Item created successfully',
-            'data'    => $item,
-        ], 201);
+        return redirect('/inventory')->with('success', 'Item created successfully!');
     }
 
-    public function update(Request $request, $code)
+    public function update(Request $request, $inventory)
     {
-        $item = Inventory::where('ITEM_CODE', $code)->firstOrFail();
+        $item = Inventory::where('ITEM_CODE', $inventory)->firstOrFail();
 
         $validated = $request->validate([
-            // FIXED: Ignore existing record during unique check
-            'ITEM_CODE'            => 'required|integer|unique:inventory,ITEM_CODE,' . $code . ',ITEM_CODE',
             'GENERIC_NAME'         => 'required|string|max:255',
             'BRAND_NAME'           => 'nullable|string|max:255',
             'ITEM_CATEGORY'        => 'required|string',
@@ -50,10 +44,6 @@ class InventoryController extends Controller
 
         $item->update($validated);
 
-        return response()->json([
-            'status'  => 'Success',
-            'message' => 'Item updated successfully',
-            'data'    => $item,
-        ], 200);
+        return response()->json(['message' => 'Item updated successfully!']);
     }
 }

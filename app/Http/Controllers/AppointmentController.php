@@ -33,7 +33,6 @@ class AppointmentController extends Controller
             ->orderBy('AVAILABLE_DATE', 'asc')
             ->get();
 
-        // Ensure both variables are passed to the view
         return view('appointments.index', compact('appointments', 'schedules'));
     }
 
@@ -41,6 +40,7 @@ class AppointmentController extends Controller
     {
         $validated = $request->validate([
             'DOCTOR_NAME'    => 'required|string|max:255',
+            'CATEGORY'       => 'required|in:Medical,Dental', // Added validation for category
             'AVAILABLE_DATE' => 'required|date|after_or_equal:today',
             'START_TIME'     => 'required',
             'END_TIME'       => 'required',

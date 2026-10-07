@@ -1,13 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>RAM-CIMS - Appointments</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light p-4">
+@extends('layouts.app')
+
+@section('title', 'RAM-CIMS - Appointments')
+
+@section('content')
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold text-primary">Clinic Appointments</h2>
@@ -267,25 +262,65 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body row g-3">
+                
+                <!-- Attending Physician mapped to AppUser / MedicalStaff -->
                 <div class="col-12">
-                    <label class="form-label fw-semibold">Attending Physician / Doctor Name</label>
-                    <input type="text" name="DOCTOR_NAME" class="form-control rounded-2" placeholder="Dr. Juan" required>
+                    <label class="form-label fw-semibold">Attending Physician</label>
+                    <select name="AttendingStaff_AppUser_Id" class="form-select rounded-2" required>
+                        <option value="" selected disabled>Select doctor...</option>
+                        @foreach($doctors as $doctor)
+                            <option value="{{ $doctor->id }}">Dr. {{ $doctor->LastName }}, {{ $doctor->FirstName }}</option>
+                        @endforeach
+                    </select>
                 </div>
+
+                <!-- Appointment Type mapped to AppointmentType table ID -->
                 <div class="col-12">
-                    <label class="form-label fw-semibold">Duty Date (e.g. 2 days from today)</label>
+                    <label class="form-label fw-semibold">Appointment Type (Category)</label>
+                    <select name="AppointmentType_Id" class="form-select rounded-2" required>
+                        <option value="" selected disabled>Select type...</option>
+                        @foreach($appointmentTypes as $type)
+                            <option value="{{ $type->id }}">{{ $type->Label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Duty Date</label>
                     <input type="date" name="AVAILABLE_DATE" class="form-control rounded-2" min="{{ date('Y-m-d') }}" value="{{ \Carbon\Carbon::today()->addDays(2)->format('Y-m-d') }}" required>
                 </div>
+
+                <!-- Time Slot selection matching 1-hour increments -->
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold">Start Time</label>
-                    <input type="time" name="START_TIME" class="form-control rounded-2" value="08:00" required>
+                    <label class="form-label fw-semibold">Start Time Slot</label>
+                    <select name="START_TIME" class="form-select rounded-2" required>
+                        <option value="08:00:00">8:00 AM</option>
+                        <option value="09:00:00">9:00 AM</option>
+                        <option value="10:00:00">10:00 AM</option>
+                        <option value="11:00:00">11:00 AM</option>
+                        <option value="13:00:00">1:00 PM</option>
+                        <option value="14:00:00">2:00 PM</option>
+                        <option value="15:00:00">3:00 PM</option>
+                        <option value="16:00:00">4:00 PM</option>
+                    </select>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold">End Time</label>
-                    <input type="time" name="END_TIME" class="form-control rounded-2" value="17:00" required>
+                    <label class="form-label fw-semibold">End Time Slot</label>
+                    <select name="END_TIME" class="form-select rounded-2" required>
+                        <option value="09:00:00">9:00 AM</option>
+                        <option value="10:00:00">10:00 AM</option>
+                        <option value="11:00:00">11:00 AM</option>
+                        <option value="12:00:00">12:00 PM</option>
+                        <option value="14:00:00">2:00 PM</option>
+                        <option value="15:00:00">3:00 PM</option>
+                        <option value="16:00:00">4:00 PM</option>
+                        <option value="17:00:00">5:00 PM</option>
+                    </select>
                 </div>
+
                 <div class="col-12">
-                    <label class="form-label fw-semibold">Notes / Specialization</label>
-                    <input type="text" name="NOTES" class="form-control rounded-2" placeholder="General Consultation / On-call">
+                    <label class="form-label fw-semibold">Details / Notes</label>
+                    <input type="text" name="Details" class="form-control rounded-2" placeholder="General Consultation / Special notes">
                 </div>
             </div>
             <div class="modal-footer">
@@ -295,8 +330,10 @@
         </form>
     </div>
 </div>
+@endsection
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+@push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const editModal = document.getElementById('editAppointmentModal');
@@ -349,5 +386,4 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 </script>
-</body>
-</html>
+@endpush

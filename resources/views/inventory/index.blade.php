@@ -1,14 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>RAM-CIMS - Inventory Dashboard</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-</head>
-<body class="bg-light">
+@extends('layouts.app')
 
+@section('title', 'RAM-CIMS - Inventory')
+
+@section('content')
     <div class="container mt-5">
         
         @if(session('success'))
@@ -178,9 +172,10 @@
             </div>
         </div>
     </div>
+@endsection
 
     <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+@push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const editModal = document.getElementById('editItemModal');
@@ -265,6 +260,4 @@
                 });
             }
         });
-</script>
-</body>
-</html>
+@endpush
