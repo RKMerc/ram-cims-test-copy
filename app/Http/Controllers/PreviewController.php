@@ -38,7 +38,7 @@ class PreviewController extends Controller
     private function account(string $role): AppUser
     {
         $isStaff = $role === 'staff';
-        $type = UserType::query()->where('Name', $isStaff ? 'Medical Staff' : 'Student')->firstOrFail();
+        $type = UserType::where('Name', $isStaff ? 'Medical Staff' : 'Student')->firstOrFail();
 
         $account = AppUser::updateOrCreate(
             ['EmailAddress' => $isStaff ? 'preview.staff@apc.edu.ph' : 'preview.student@apc.edu.ph'],
