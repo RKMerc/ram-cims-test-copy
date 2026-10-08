@@ -38,7 +38,7 @@ return [
     'microsoft' => [
         'client_id' => env('MICROSOFT_CLIENT_ID', '7078db0e-9845-4f8c-a5c2-c1d431010927'),
         'client_secret' => env('MICROSOFT_CLIENT_SECRET', '_Qe8Q~UyLjPdmi7Vh7rIL~VwkawT85dHzLmBcaUs'),
-        'redirect' => env('MICROSOFT_REDIRECT_URI', 'https://192.168.28.99:8000/auth/microsoft/callback'),
+        'redirect' => env('MICROSOFT_REDIRECT_URI', 'http://127.0.0.1:8000/auth/microsoft/callback'),
         'tenant' => 'organizations',
     ],
 

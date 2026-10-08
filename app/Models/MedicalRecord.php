@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\AppUser;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -20,4 +22,15 @@ class MedicalRecord extends Model
         'PATIENT_ID',
         'APPT_ID',
     ];
+
+    public function scopeForPatient(Builder $query, AppUser $account): Builder
+    {
+        $ids = $account->recordIds();
+
+        if ($ids === []) {
+            return $query->whereRaw('0 = 1');
+        }
+
+        return $query->whereIn('PATIENT_ID', $ids);
+    }
 }

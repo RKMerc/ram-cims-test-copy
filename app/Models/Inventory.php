@@ -20,8 +20,18 @@ class Inventory extends Model
         'ITEM_CODE',
         'GENERIC_NAME',
         'BRAND_NAME',
+        'ITEM_DOSAGE',
+        'ITEM_UNIT',
+        'ITEM_FORM',
         'ITEM_CATEGORY',
         'ITEM_QUANTITY',
         'ITEM_EXPIRATION_DATE'
     ];
+
+    public static function nextItemCode(): int
+    {
+        $max = static::query()->max('ITEM_CODE');
+
+        return $max ? ((int) $max) + 1 : 1001;
+    }
 }

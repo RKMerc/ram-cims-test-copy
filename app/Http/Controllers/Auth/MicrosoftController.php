@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use Laravel\Socialite\Facades\Socialite;
+use App\Models\AppUser;
 use App\Models\User;
+use App\Support\ClinicAccess;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Laravel\Socialite\Facades\Socialite;
 
 class MicrosoftController extends Controller
 {
@@ -34,11 +36,23 @@ class MicrosoftController extends Controller
                 ]
             );
 
+            $account = null;
+
+            try {
+                $account = AppUser::syncFromIdentity($microsoftUser->getEmail(), $microsoftUser->getName());
+            } catch (\Throwable $e) {
+                report($e);
+            }
+
             Auth::login($user);
+
+            if ($account) {
+                app(ClinicAccess::class)->remember($account);
+            }
 
             return redirect()->intended('/dashboard');
         } catch (\Exception $e) {
-            return redirect('/login')->with('error', 'Microsoft authentication failed. Please try again.');
+            return redirect()->route('login')->with('error', 'Microsoft authentication failed. Please try again.');
         }
     }
 }

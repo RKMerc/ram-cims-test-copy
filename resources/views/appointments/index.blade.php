@@ -5,9 +5,16 @@
 @section('content')
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold text-primary">Clinic Appointments</h2>
+        <div>
+            <h2 class="fw-bold text-primary mb-1">{{ $isClinicStaff ? 'Clinic Appointments' : 'My Appointments' }}</h2>
+            <p class="text-muted mb-0">{{ $isClinicStaff ? 'Queue management for clinic visits.' : 'Schedule a check-up and review your bookings.' }}</p>
+        </div>
+        @unless($isClinicStaff)
+            <button class="btn btn-primary fw-semibold" data-bs-toggle="modal" data-bs-target="#addAppointmentModal">+ Schedule Check-Up</button>
+        @endunless
     </div>
 
+    @if($isClinicStaff)
     <!-- Filter/Search Bar -->
     <div class="card mb-4 shadow-sm border-0 rounded-3">
         <div class="card-body">
@@ -35,12 +42,15 @@
             </form>
         </div>
     </div>
+    @endif
 
     <!-- Appointments Table -->
     <div class="card mb-4 shadow-sm border-0 rounded-3 overflow-hidden">
         <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
-            <h5 class="mb-0 fw-bold">Clinic Appointments</h5>
-            <button class="btn btn-sm btn-light fw-semibold rounded-2" data-bs-toggle="modal" data-bs-target="#addAppointmentModal">+ Schedule Appointment</button>
+            <h5 class="mb-0 fw-bold">{{ $isClinicStaff ? 'Clinic Appointments' : 'My Scheduled Appointments' }}</h5>
+            @if($isClinicStaff)
+                <button class="btn btn-sm btn-light fw-semibold rounded-2" data-bs-toggle="modal" data-bs-target="#addAppointmentModal">+ Schedule Appointment</button>
+            @endif
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -55,7 +65,9 @@
                             <th>Physician/Staff</th>
                             <th>Date & Time</th>
                             <th>Status</th>
-                            <th class="text-center">Actions</th>
+                            @if($isClinicStaff)
+                                <th class="text-center">Actions</th>
+                            @endif
                         </tr>
                     </thead>
                     <tbody>
@@ -73,6 +85,7 @@
                                     {{ $app->STATUS }}
                                 </span>
                             </td>
+                            @if($isClinicStaff)
                             <td class="text-center">
                                 <button type="button" class="btn btn-sm btn-outline-primary fw-semibold edit-btn rounded-2"
                                     data-bs-toggle="modal" data-bs-target="#editAppointmentModal"
@@ -92,10 +105,11 @@
                                     <button type="submit" class="btn btn-sm btn-outline-danger fw-semibold rounded-2">Remove</button>
                                 </form>
                             </td>
+                            @endif
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="9" class="text-center py-4 text-muted">No appointments found.</td>
+                            <td colspan="{{ $isClinicStaff ? 9 : 8 }}" class="text-center py-4 text-muted">No appointments found.</td>
                         </tr>
                         @endforelse
                     </tbody>
@@ -116,12 +130,29 @@
             </div>
             <div class="modal-body row g-3">
                 <div class="col-md-6">
+                    <label class="form-label fw-semibold">Appointment ID</label>
+                    <input type="text" class="form-control" value="Auto-assigned (#{{ $nextAppointmentId }})" readonly>
+                </div>
+                <div class="col-md-6">
                     <label class="form-label fw-semibold">Patient ID</label>
-                    <input type="text" name="PATIENT_ID" class="form-control" placeholder="e.g. 2024140159" pattern="[0-9]{10}" title="Please enter a valid 10-digit Patient ID" required>
+                    @if($isClinicStaff)
+                        @php
+                            $ownPatientId = $clinicAccount?->Student_Employee_No ?: $clinicAccount?->Id;
+                            $patientIdValue = ($clinicAccount && ! $clinicAccount->isClinicStaff()) ? $ownPatientId : $nextPatientId;
+                        @endphp
+                        <input type="text" name="PATIENT_ID" class="form-control" value="{{ $patientIdValue }}" required>
+                        <div class="form-text">Filled from the signed-in account. Replace it when booking for someone else.</div>
+                    @else
+                        <input type="text" name="PATIENT_ID" class="form-control" value="{{ $clinicAccount?->Student_Employee_No ?: $clinicAccount?->Id }}" readonly>
+                    @endif
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Patient Name</label>
-                    <input type="text" name="PATIENT_NAME" class="form-control" placeholder="John Doe" required>
+                    @if($isClinicStaff)
+                        <input type="text" name="PATIENT_NAME" class="form-control" placeholder="John Doe" required>
+                    @else
+                        <input type="text" name="PATIENT_NAME" class="form-control" value="{{ $clinicAccount?->fullName() }}" readonly>
+                    @endif
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Appointment Type</label>
@@ -134,7 +165,9 @@
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Attending Physician</label>
-                    <input type="text" name="ATTENDING_PHYSICIAN" class="form-control" required>
+                    <select name="ATTENDING_PHYSICIAN" class="form-select" required>
+                        @include('partials.physician-options')
+                    </select>
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-semibold">Scheduled Date & Time</label>
@@ -153,6 +186,7 @@
     </div>
 </div>
 
+@if($isClinicStaff)
 <!-- Edit Appointment Modal -->
 <div class="modal fade" id="editAppointmentModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -162,10 +196,13 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body row g-3">
-                <input type="hidden" id="edit_APPOINTMENT_ID">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Appointment ID</label>
+                    <input type="text" id="edit_APPOINTMENT_ID" class="form-control" readonly>
+                </div>
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Patient ID</label>
-                    <input type="text" id="edit_PATIENT_ID" name="PATIENT_ID" class="form-control" placeholder="e.g. 2024140159" pattern="[0-9]{10}" title="Please enter a valid 10-digit Patient ID" required>
+                    <input type="text" id="edit_PATIENT_ID" name="PATIENT_ID" class="form-control" required>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Patient Name</label>
@@ -177,7 +214,9 @@
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Attending Physician</label>
-                    <input type="text" id="edit_ATTENDING_PHYSICIAN" name="ATTENDING_PHYSICIAN" class="form-control" required>
+                    <select id="edit_ATTENDING_PHYSICIAN" name="ATTENDING_PHYSICIAN" class="form-select" required>
+                        @include('partials.physician-options')
+                    </select>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Scheduled Date & Time</label>
@@ -186,7 +225,9 @@
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Status</label>
                     <select id="edit_STATUS" name="STATUS" class="form-select" required>
+                        <option value="Pending">Pending</option>
                         <option value="Scheduled">Scheduled</option>
+                        <option value="In Consultation">In Consultation</option>
                         <option value="Completed">Completed</option>
                         <option value="Cancelled">Cancelled</option>
                     </select>
@@ -203,10 +244,44 @@
         </form>
     </div>
 </div>
+@endif
 
+@include('partials.duty-board')
+
+<div class="card mb-4 shadow-sm border-0 rounded-3 overflow-hidden">
+    <div class="card-header bg-dark text-white py-3">
+        <h5 class="mb-0 fw-bold">Weekly Duty Hours</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0 align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Name</th>
+                        <th>Role</th>
+                        <th>Duty Days</th>
+                        <th>Hours</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach(\App\Support\ClinicRoster::rows() as $duty)
+                    <tr>
+                        <td class="fw-semibold">{{ $duty['name'] }}</td>
+                        <td>{{ $duty['role'] }}</td>
+                        <td>{{ $duty['days'] }}</td>
+                        <td>{{ $duty['hours'] }}</td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if($isClinicStaff)
 <div class="card mb-5 shadow-sm border-0 rounded-3 overflow-hidden">
     <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
-        <h5 class="mb-0 fw-bold">Doctor Duty Schedule & Availability</h5>
+        <h5 class="mb-0 fw-bold">Additional Published Availability</h5>
         <button class="btn btn-sm btn-light fw-semibold rounded-2" data-bs-toggle="modal" data-bs-target="#addScheduleModal">+ Publish Doctor Availability</button>
     </div>
     <div class="card-body p-0">
@@ -263,25 +338,10 @@
             </div>
             <div class="modal-body row g-3">
                 
-                <!-- Attending Physician mapped to AppUser / MedicalStaff -->
                 <div class="col-12">
                     <label class="form-label fw-semibold">Attending Physician</label>
-                    <select name="AttendingStaff_AppUser_Id" class="form-select rounded-2" required>
-                        <option value="" selected disabled>Select doctor...</option>
-                        @foreach($doctors as $doctor)
-                            <option value="{{ $doctor->id }}">Dr. {{ $doctor->LastName }}, {{ $doctor->FirstName }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <!-- Appointment Type mapped to AppointmentType table ID -->
-                <div class="col-12">
-                    <label class="form-label fw-semibold">Appointment Type (Category)</label>
-                    <select name="AppointmentType_Id" class="form-select rounded-2" required>
-                        <option value="" selected disabled>Select type...</option>
-                        @foreach($appointmentTypes as $type)
-                            <option value="{{ $type->id }}">{{ $type->Label }}</option>
-                        @endforeach
+                    <select name="DOCTOR_NAME" class="form-select rounded-2" required>
+                        @include('partials.physician-options')
                     </select>
                 </div>
 
@@ -320,7 +380,7 @@
 
                 <div class="col-12">
                     <label class="form-label fw-semibold">Details / Notes</label>
-                    <input type="text" name="Details" class="form-control rounded-2" placeholder="General Consultation / Special notes">
+                    <input type="text" name="NOTES" class="form-control rounded-2" placeholder="General Consultation / Special notes">
                 </div>
             </div>
             <div class="modal-footer">
@@ -330,6 +390,7 @@
         </form>
     </div>
 </div>
+@endif
 @endsection
 
 
@@ -343,13 +404,25 @@ document.addEventListener('DOMContentLoaded', function () {
             const button = event.relatedTarget;
             if (!button) return;
 
+            const doctor = button.getAttribute('data-doctor') || '';
+            const status = button.getAttribute('data-status') || 'Scheduled';
+            const doctorSelect = document.getElementById('edit_ATTENDING_PHYSICIAN');
+            const statusSelect = document.getElementById('edit_STATUS');
+
+            if (doctor && ![...doctorSelect.options].some(option => option.value === doctor)) {
+                doctorSelect.add(new Option(doctor, doctor));
+            }
+            if (status && ![...statusSelect.options].some(option => option.value === status)) {
+                statusSelect.add(new Option(status, status));
+            }
+
             document.getElementById('edit_APPOINTMENT_ID').value = button.getAttribute('data-id') || '';
             document.getElementById('edit_PATIENT_ID').value = button.getAttribute('data-patient-id') || '';
             document.getElementById('edit_PATIENT_NAME').value = button.getAttribute('data-patient') || '';
             document.getElementById('edit_APPOINTMENT_TYPE').value = button.getAttribute('data-type') || '';
-            document.getElementById('edit_ATTENDING_PHYSICIAN').value = button.getAttribute('data-doctor') || '';
+            doctorSelect.value = doctor;
             document.getElementById('edit_SCHEDULED_AT').value = button.getAttribute('data-schedule') || '';
-            document.getElementById('edit_STATUS').value = button.getAttribute('data-status') || 'Scheduled';
+            statusSelect.value = status;
             document.getElementById('edit_APPOINTMENT_REASON').value = button.getAttribute('data-reason') || '';
         });
     }
@@ -378,7 +451,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     alert(result.message || 'Appointment updated successfully!');
                     location.reload();
                 } else {
-                    alert('Error updating appointment.');
+                    const errorMsg = result.errors
+                        ? Object.values(result.errors).flat().join('\n')
+                        : (result.message || 'Error updating appointment.');
+                    alert(errorMsg);
                 }
             })
             .catch(error => console.error('Error:', error));

@@ -1,0 +1,596 @@
+<link rel="preconnect" href="https://fonts.bunny.net">
+<link href="https://fonts.bunny.net/css?family=source-sans-3:400,500,600,700" rel="stylesheet">
+<style>
+    :root {
+        --apc-blue: #003B7A;
+        --apc-gold: #E1B11A;
+        --apc-white: #ffffff;
+        --apc-mist: #f4f7fb;
+        --apc-ink: #10243f;
+        --bs-primary: #003B7A;
+        --bs-primary-rgb: 0, 59, 122;
+        --bs-link-color: #003B7A;
+        --bs-link-hover-color: #002a58;
+        --bs-dark: #003B7A;
+        --bs-dark-rgb: 0, 59, 122;
+        --bs-body-font-family: "Source Sans 3", "Segoe UI", sans-serif;
+        --bs-body-color: #10243f;
+        --bs-border-radius: 0.75rem;
+        --bs-focus-ring-color: rgba(225, 177, 26, 0.45);
+    }
+
+    body {
+        font-family: "Source Sans 3", "Segoe UI", sans-serif;
+        color: var(--apc-ink);
+    }
+
+    .btn-primary {
+        --bs-btn-bg: #003B7A;
+        --bs-btn-border-color: #003B7A;
+        --bs-btn-hover-bg: #002a58;
+        --bs-btn-hover-border-color: #002a58;
+        --bs-btn-active-bg: #002244;
+        --bs-btn-active-border-color: #002244;
+        --bs-btn-disabled-bg: #003B7A;
+        --bs-btn-disabled-border-color: #003B7A;
+    }
+
+    .btn-outline-primary {
+        --bs-btn-color: #003B7A;
+        --bs-btn-border-color: #E1B11A;
+        --bs-btn-hover-color: #003B7A;
+        --bs-btn-hover-bg: #E1B11A;
+        --bs-btn-hover-border-color: #E1B11A;
+        --bs-btn-active-color: #003B7A;
+        --bs-btn-active-bg: #c99a12;
+        --bs-btn-active-border-color: #c99a12;
+    }
+
+    .btn-dark {
+        --bs-btn-bg: #003B7A;
+        --bs-btn-border-color: #003B7A;
+        --bs-btn-hover-bg: #002a58;
+        --bs-btn-hover-border-color: #E1B11A;
+    }
+
+    .text-primary { color: #003B7A !important; }
+    .bg-primary { background-color: #003B7A !important; }
+    .border-primary { border-color: #E1B11A !important; }
+
+    .bg-dark,
+    .card-header.bg-dark {
+        background-color: #003B7A !important;
+    }
+
+    .table-dark {
+        --bs-table-bg: #003B7A;
+        --bs-table-color: #fff;
+        --bs-table-border-color: rgba(225, 177, 26, 0.35);
+        --bs-table-striped-bg: #0a4688;
+        --bs-table-hover-bg: #145294;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #E1B11A;
+        box-shadow: 0 0 0 0.2rem rgba(225, 177, 26, 0.28);
+    }
+
+    .app-shell {
+        min-height: 100vh;
+        background: var(--apc-mist);
+        position: relative;
+    }
+
+    .app-shell::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: url("{{ asset('images/apc-logo.png') }}") center 42% / min(520px, 70vw) no-repeat;
+        opacity: 0.1;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .app-nav,
+    .app-main,
+    .app-footer,
+    .ramsey {
+        position: relative;
+        z-index: 1;
+    }
+
+    .app-nav {
+        background: #003B7A;
+        border-bottom: 4px solid #E1B11A;
+        box-shadow: 0 8px 24px rgba(0, 59, 122, 0.18);
+    }
+
+    .brand-lockup {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        color: #fff;
+        text-decoration: none;
+    }
+
+    .brand-lockup:hover { color: #fff; }
+
+    .brand-mark {
+        width: 52px;
+        height: 52px;
+        border-radius: 8px;
+        background: #E1B11A;
+        padding: 0;
+        object-fit: cover;
+    }
+
+    .brand-lockup strong {
+        display: block;
+        letter-spacing: 0.04em;
+        font-size: 1.05rem;
+        line-height: 1.1;
+    }
+
+    .brand-lockup small {
+        display: block;
+        color: #E1B11A;
+        letter-spacing: 0.02em;
+    }
+
+    .app-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+
+    .app-links a {
+        color: rgba(255, 255, 255, 0.84);
+        text-decoration: none;
+        font-weight: 600;
+        padding: 0.45rem 0.8rem;
+        border-radius: 999px;
+    }
+
+    .modal-content .form-control,
+    .modal-content .form-select {
+        background-color: #fff;
+    }
+
+    .duty-grid th,
+    .duty-grid td { vertical-align: middle; }
+    .duty-open { background: #D4EDDA !important; color: #155724; }
+    .duty-closed { background: #E2E3E5 !important; color: #383D41; }
+    .duty-cell-btn {
+        border: 2px solid transparent;
+        border-radius: 10px;
+        background: transparent;
+        color: inherit;
+        font-weight: 700;
+        letter-spacing: .02em;
+        width: 100%;
+        min-height: 4.6rem;
+        padding: .7rem .35rem;
+        cursor: pointer;
+        transition: transform .12s ease, border-color .12s ease, background-color .12s ease;
+    }
+    .duty-open .duty-cell-btn:hover,
+    .duty-open .duty-cell-btn.is-selected {
+        background: #c3e6cb;
+        border-color: #155724;
+        transform: translateY(-1px);
+    }
+    .duty-closed .duty-cell-btn:hover,
+    .duty-closed .duty-cell-btn.is-selected {
+        background: #d6d8db;
+        border-color: #383D41;
+        transform: translateY(-1px);
+    }
+    .duty-cell-btn:focus-visible {
+        outline: 3px solid #E1B11A;
+        outline-offset: 2px;
+    }
+    .duty-cell-hint {
+        display: block;
+        margin-top: .2rem;
+        font-size: .68rem;
+        font-weight: 600;
+        letter-spacing: 0;
+        opacity: .8;
+    }
+
+    .app-links a:hover,
+    .app-links a.active {
+        color: #003B7A;
+        background: #E1B11A;
+    }
+
+    .app-main {
+        width: min(1140px, calc(100% - 2rem));
+        margin: 0 auto;
+        padding: 1.75rem 0 5.5rem;
+    }
+
+    .app-shell .card {
+        border: 0;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(1, 45, 96, 0.06);
+    }
+
+    .app-shell .card-header {
+        border-bottom: 0;
+    }
+
+    .app-shell .table {
+        --bs-table-bg: transparent;
+    }
+
+    .app-shell thead.table-light {
+        --bs-table-bg: #f8f1d4;
+        --bs-table-color: #003B7A;
+    }
+
+    .app-shell h1,
+    .app-shell h2,
+    .app-shell .h3 {
+        letter-spacing: -0.02em;
+    }
+
+    .app-footer {
+        color: #5c6b82;
+        text-align: center;
+        font-size: 0.875rem;
+        padding-bottom: 1.5rem;
+    }
+
+    .ramsey-toggle {
+        position: fixed;
+        right: 1.25rem;
+        bottom: 1.25rem;
+        z-index: 1040;
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        border: 2px solid #E1B11A;
+        border-radius: 999px;
+        background: #003B7A;
+        color: #fff;
+        font-weight: 700;
+        padding: 0.7rem 1rem 0.7rem 0.7rem;
+        box-shadow: 0 12px 28px rgba(1, 45, 96, 0.28);
+    }
+
+    .ramsey-toggle:hover { background: #002a58; }
+
+    .ramsey-toggle-mark {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #E1B11A;
+        color: #003B7A;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+    }
+
+    .ramsey-panel {
+        position: fixed;
+        right: 1.25rem;
+        bottom: 5rem;
+        z-index: 1040;
+        width: min(420px, calc(100vw - 1.5rem));
+        height: min(680px, calc(100vh - 6.5rem));
+        background: #fff;
+        border-radius: 18px;
+        box-shadow: 0 24px 50px rgba(1, 45, 96, 0.22);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .ramsey-panel[hidden] { display: none !important; }
+
+    .ramsey-head {
+        background: #003B7A;
+        border-bottom: 3px solid #E1B11A;
+        color: #fff;
+        padding: 0.85rem 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .ramsey-head strong {
+        display: block;
+        line-height: 1.25;
+        font-size: 0.98rem;
+    }
+
+    .ramsey-head p {
+        margin: 0.25rem 0 0;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 0.75rem;
+        line-height: 1.35;
+    }
+
+    .ramsey-role {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        padding: 0.45rem 0.75rem;
+        background: #f8f1d4;
+        color: #003B7A;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+
+    .ramsey-role button {
+        border: 1px solid #003B7A;
+        background: #fff;
+        color: #003B7A;
+        border-radius: 999px;
+        padding: 0.15rem 0.55rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+
+    .ramsey-role button.is-active {
+        background: #003B7A;
+        color: #fff;
+    }
+
+    .ramsey-close {
+        border: 0;
+        background: transparent;
+        color: #fff;
+        font-size: 1.4rem;
+        line-height: 1;
+    }
+
+    .ramsey-body {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .ramsey-log {
+        flex: 1;
+        min-height: 6rem;
+        overflow: auto;
+        padding: 1rem;
+        background:
+            linear-gradient(180deg, rgba(231, 237, 246, 0.65), #fff 90px);
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .ramsey-msg {
+        max-width: 92%;
+        padding: 0.7rem 0.85rem;
+        border-radius: 14px;
+        white-space: pre-wrap;
+        line-height: 1.45;
+    }
+
+    .ramsey-msg.bot {
+        background: #eef2fa;
+        color: #10243f;
+        border-bottom-left-radius: 4px;
+    }
+
+    .ramsey-msg.user {
+        margin-left: auto;
+        background: #003B7A;
+        color: #fff;
+        border-bottom-right-radius: 4px;
+    }
+
+    .ramsey-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-top: 0.55rem;
+    }
+
+    .ramsey-links a,
+    .ramsey-chips button {
+        border: 1px solid #E1B11A;
+        background: #fff;
+        color: #003B7A;
+        border-radius: 999px;
+        padding: 0.25rem 0.7rem;
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-decoration: none;
+        text-align: left;
+    }
+
+    .ramsey-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        padding: 0.75rem 0.75rem 0.35rem;
+    }
+
+    .ramsey-tools {
+        display: grid;
+        gap: 0.35rem;
+        padding: 0.35rem 0.75rem 0.75rem;
+    }
+
+    .ramsey-tools[hidden] { display: none !important; }
+
+    .ramsey-tools p {
+        margin: 0;
+        color: #003B7A;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+
+    .ramsey-tools select,
+    .ramsey-tools input {
+        width: 100%;
+        border: 1px solid #d5deea;
+        border-radius: 10px;
+        padding: 0.35rem 0.6rem;
+        font-size: 0.82rem;
+        background: #fff;
+    }
+
+    .ramsey-tools button,
+    .ramsey-form button {
+        border: 0;
+        border-radius: 999px;
+        background: #003B7A;
+        color: #fff;
+        font-weight: 700;
+        padding: 0.4rem 0.85rem;
+        justify-self: start;
+    }
+
+    .ramsey-form {
+        display: flex;
+        flex-shrink: 0;
+        gap: 0.45rem;
+        padding: 0.75rem;
+        border-top: 1px solid #e6ebf3;
+        background: #fff;
+    }
+
+    .ramsey-form input {
+        flex: 1;
+        border: 1px solid #d5deea;
+        border-radius: 999px;
+        padding: 0.45rem 0.8rem;
+    }
+
+    .guest-shell {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 1.5rem;
+        background: #003B7A;
+        color: #fff;
+        position: relative;
+    }
+
+    .guest-shell::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: url("{{ asset('images/apc-logo.png') }}") center / min(640px, 90vw) no-repeat;
+        opacity: 0.16;
+        pointer-events: none;
+    }
+
+    .guest-card {
+        position: relative;
+        z-index: 1;
+        width: min(460px, 100%);
+        background: #fff;
+        color: #10243f;
+        border-radius: 22px;
+        padding: 2rem 1.75rem;
+        text-align: center;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+    }
+
+    .guest-card img {
+        width: 148px;
+        height: auto;
+        margin-bottom: 0.5rem;
+    }
+
+    .guest-card .eyebrow {
+        color: #003B7A;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 0.78rem;
+    }
+
+    .guest-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        margin-top: 1.25rem;
+    }
+
+    .guest-note {
+        margin-top: 1rem;
+        color: #5c6b82;
+        font-size: 0.9rem;
+    }
+
+    .guest-card-roles {
+        width: min(460px, 100%);
+    }
+
+    .role-folders {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        margin-top: 1.5rem;
+        text-align: left;
+    }
+
+    .role-folder {
+        margin-top: 1.5rem;
+    }
+
+    .role-folder-tab {
+        display: inline-block;
+        margin: 0;
+        background: #003B7A;
+        color: #fff;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 0.42rem 1rem 0.38rem;
+        border-radius: 12px 12px 0 0;
+    }
+
+    .role-folder-body {
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+        min-height: 0;
+        background: #f7f9fc;
+        border: 1px solid #d5deea;
+        border-radius: 16px;
+        padding: 1rem 0.95rem 0.95rem;
+    }
+
+    .guest-card-roles .guest-actions {
+        width: min(420px, 100%);
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .role-folder-body h2 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        line-height: 1.3;
+        color: #10243f;
+    }
+
+    .role-folder-body p {
+        margin: 0;
+        color: #3d4f68;
+        flex: 1;
+    }
+
+    .role-folder-body .btn {
+        margin-top: auto;
+        white-space: normal;
+        line-height: 1.25;
+    }
+
+</style>

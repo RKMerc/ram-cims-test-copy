@@ -1,73 +1,120 @@
 <?php
-/*
+
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Models\Appointment;
+use App\Models\Inventory;
+use App\Models\MedicalRecord;
+use App\Support\ClinicAccess;
 
 class DashboardController extends Controller
 {
-    public function index()
+    private const LOW_STOCK_AT = 10;
+
+    public function __construct(private ClinicAccess $access)
     {
-        $user = auth()->user(); // Assuming standard or temporary local auth for now
-
-        // Check user type (e.g., if UserTypeId represents staff vs patient)
-        if ($user->UserTypeId === 2) { // Assuming staff type ID
-            $data = [
-                'upcomingAppointments' => \App\Models\Appointment::with(['patient', 'appointmentType'])
-                    ->where('ScheduleDateTime', '>=', now())
-                    ->orderBy('ScheduleDateTime', 'asc')
-                    ->take(5)
-                    ->get(),
-                'lowStockItems' => \App\Models\ItemInventory::where('Quantity', '<=', 10)->get(),
-                'totalAppointmentsToday' => \App\Models\Appointment::whereDate('ScheduleDateTime', today())->count(),
-            ];
-        } else {
-            // Patient view
-            $data = [
-                'myAppointments' => \App\Models\Appointment::where('Patient_AppUserId', $user->Id)
-                    ->orderBy('ScheduleDateTime', 'desc')
-                    ->take(5)
-                    ->get(),
-            ];
-        }
-
-        return view('dashboard.index', compact('data'));
     }
-}
-*/
 
-namespace App\Http\Controllers;
-
-use Illuminate\Http\Request;
-
-class DashboardController extends Controller
-{
     public function index()
     {
-        $user = auth()->user(); 
-
-        // Temporary toggle for UI testing (true = staff view, false = patient view)
-        $isStaff = true; 
-
-        if ($isStaff) { 
-            $data = [
-                'upcomingAppointments' => \App\Models\Appointment::where('SCHEDULED_AT', '>=', now())
-                ->orderBy('SCHEDULED_AT', 'asc')
-                ->take(5)
-                ->get(),
-            'lowStockItems' => \App\Models\Inventory::where('ITEM_QUANTITY', '<=', 10)->get(),
-            'totalAppointmentsToday' => \App\Models\Appointment::whereDate('SCHEDULED_AT', today())->count(),
-            'totalAppointments' => \App\Models\Appointment::count(),
-            ];
-        } else {
-            // Patient view
-            $data = [
-                'myAppointments' => \App\Models\Appointment::where('PATIENT_NAME', $user->Name ?? '') // Or use the correct patient identifier column
-                    ->orderBy('SCHEDULED_AT', 'desc')
-                    ->take(5)
-                    ->get(),
-            ];
+        if ($this->access->isStaff()) {
+            return view('dashboard.index', $this->staffData());
         }
-        return view('dashboard.index', compact('data'));
+
+        return view('dashboard.index', $this->studentData());
+    }
+
+    public function nextPatient()
+    {
+        $treatmentFirst = (bool) session('clinic.treatment_first');
+        $next = $this->waitingQuery($treatmentFirst)->first();
+
+        if (! $next) {
+            return redirect()
+                ->route('dashboard')
+                ->with('error', 'No patients are waiting in the queue.');
+        }
+
+        $next->update(['STATUS' => 'In Consultation']);
+
+        return redirect()
+            ->route('dashboard')
+            ->with('success', 'Next patient: '.$next->PATIENT_NAME.'.');
+    }
+
+    public function toggleTreatmentMode()
+    {
+        $enabled = ! session('clinic.treatment_first');
+        session(['clinic.treatment_first' => $enabled]);
+
+        return redirect()
+            ->route('dashboard')
+            ->with('success', $enabled
+                ? 'Treatment-first mode is on. Emergency visits are called first.'
+                : 'Treatment-first mode is off. The queue follows the schedule.');
+    }
+
+    public function notifyLogistics()
+    {
+        $low = Inventory::query()->where('ITEM_QUANTITY', '<=', self::LOW_STOCK_AT)->count();
+        $message = $low > 0
+            ? 'Logistics has been notified about '.$low.' low-stock item'.($low === 1 ? '' : 's').'.'
+            : 'Logistics has been notified. All inventory stock levels are within range.';
+
+        return redirect()->route('dashboard')->with('success', $message);
+    }
+
+    private function staffData(): array
+    {
+        $treatmentFirst = (bool) session('clinic.treatment_first');
+
+        return [
+            'appointmentsToday' => Appointment::query()->whereDate('SCHEDULED_AT', today())->count(),
+            'patientsQueued' => Appointment::query()->whereDate('SCHEDULED_AT', today())->queued()->count(),
+            'queue' => $this->queueQuery($treatmentFirst)->take(8)->get(),
+            'lowStockItems' => Inventory::query()
+                ->where('ITEM_QUANTITY', '<=', self::LOW_STOCK_AT)
+                ->orderBy('ITEM_QUANTITY')
+                ->get(),
+            'treatmentFirst' => $treatmentFirst,
+        ];
+    }
+
+    private function studentData(): array
+    {
+        $account = $this->access->account();
+        $upcoming = $account
+            ? Appointment::query()->forPatient($account)->upcoming()->orderBy('SCHEDULED_AT')->get()
+            : collect();
+        $visits = $account
+            ? MedicalRecord::query()
+                ->forPatient($account)
+                ->orderByDesc('MEDREC_CONSUL_DATE')
+                ->orderByDesc('MEDREC_ID')
+                ->get()
+            : collect();
+
+        return [
+            'upcomingAppointments' => $upcoming,
+            'upcomingCount' => $upcoming->count(),
+            'visitCount' => $visits->count(),
+            'latestVisit' => $visits->first(),
+        ];
+    }
+
+    private function waitingQuery(bool $treatmentFirst)
+    {
+        return $this->queueQuery($treatmentFirst)->queued();
+    }
+
+    private function queueQuery(bool $treatmentFirst)
+    {
+        $query = Appointment::query()->where('SCHEDULED_AT', '>=', now()->startOfDay());
+
+        if ($treatmentFirst) {
+            $query->orderByRaw("CASE WHEN APPOINTMENT_TYPE = 'Emergency Care' THEN 0 ELSE 1 END");
+        }
+
+        return $query->orderBy('SCHEDULED_AT');
     }
 }
