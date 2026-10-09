@@ -20,6 +20,14 @@
             </a>
             <div class="d-flex flex-wrap align-items-center justify-content-end gap-2 ms-auto">
             <nav class="app-links" aria-label="Primary">
+                @if($canSwitchViews ?? false)
+                    <form method="POST" action="{{ route('portal.view') }}" class="view-switch">
+                        @csrf
+                        <span>View as</span>
+                        <button type="submit" name="view" value="student" class="{{ ($isClinicStaff ?? false) ? '' : 'is-active' }}" aria-pressed="{{ ($isClinicStaff ?? false) ? 'false' : 'true' }}">Student</button>
+                        <button type="submit" name="view" value="staff" class="{{ ($isClinicStaff ?? false) ? 'is-active' : '' }}" aria-pressed="{{ ($isClinicStaff ?? false) ? 'true' : 'false' }}">Clinic staff</button>
+                    </form>
+                @endif
                 <a class="{{ request()->is('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">Dashboard</a>
                 <a class="{{ request()->is('appointments') || request()->is('appointments/*') ? 'active' : '' }}" href="{{ url('/appointments') }}">Appointments</a>
                 @if($isClinicStaff)
@@ -30,7 +38,14 @@
                     <a class="{{ request()->is('visit-history') ? 'active' : '' }}" href="{{ route('visit-history') }}">Visit History</a>
                     <a class="{{ request()->is('profile') ? 'active' : '' }}" href="{{ route('profile') }}">Profile</a>
                 @endif
+                @if($canManageProfiles ?? false)
+                    <a class="{{ request()->is('users') ? 'active' : '' }}" href="{{ route('users.index') }}">Accounts</a>
+                @endif
             </nav>
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button type="submit" class="logout-link">Log out</button>
+            </form>
             </div>
         </div>
     </header>

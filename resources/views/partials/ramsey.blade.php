@@ -18,9 +18,9 @@
             </div>
             <button type="button" class="ramsey-close" id="ramseyClose" aria-label="Close RAMsey">&times;</button>
         </div>
-        @if($developerMode ?? false)
+        @if($canSwitchViews ?? false)
             <div class="ramsey-role" id="ramseyRole">
-                <span>Dev preview</span>
+                <span>View as</span>
                 <button type="button" data-ramsey-view="student" class="{{ $ramseyStaff ? '' : 'is-active' }}" aria-pressed="{{ $ramseyStaff ? 'false' : 'true' }}">Student View</button>
                 <button type="button" data-ramsey-view="staff" class="{{ $ramseyStaff ? 'is-active' : '' }}" aria-pressed="{{ $ramseyStaff ? 'true' : 'false' }}">Staff View</button>
             </div>
@@ -263,10 +263,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
                 const data = await response.json();
                 if (!response.ok) {
-                    addMessage(errorText(data) || 'I could not switch the preview.', 'bot');
+                    addMessage(errorText(data) || 'I could not switch the view.', 'bot');
                     return;
                 }
-                applyPersona(data);
+                window.location.reload();
             } catch (error) {
                 addMessage('I could not switch the preview.', 'bot');
             }

@@ -7,8 +7,8 @@ use App\Models\Inventory;
 use App\Models\MedicalRecord;
 use App\Support\ClinicAccess;
 use App\Support\ClinicRoster;
-use App\Support\DeveloperMode;
 use App\Support\DutyBoard;
+use App\Support\PortalGrant;
 use App\Support\RamseyPersona;
 use App\Support\ScheduleAlerts;
 use Carbon\Carbon;
@@ -83,13 +83,11 @@ class RamseyController extends Controller
 
     public function view(Request $request)
     {
-        abort_unless(DeveloperMode::enabled(), 403);
-
         $choice = $request->validate([
             'view' => 'required|in:student,staff',
         ])['view'];
 
-        session(['clinic.ramsey_persona' => $choice]);
+        abort_unless(PortalGrant::rememberView($request->user()?->email, $choice), 403);
 
         return response()->json($this->persona->payload());
     }

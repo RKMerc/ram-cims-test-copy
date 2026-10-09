@@ -82,12 +82,19 @@
             </div>
             <div class="modal-body">
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Patient ID</label>
-                    <input type="number" name="PATIENT_ID" class="form-control" required>
+                    <label class="form-label fw-semibold" for="add_record_patient">Patient name</label>
+                    <select name="PATIENT_ID" id="add_record_patient" class="form-select" required>
+                        <option value="" selected disabled>Select a patient</option>
+                        @foreach($patients as $patient)
+                            <option value="{{ $patient['id'] }}">{{ $patient['name'] }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Appointment ID</label>
-                    <input type="number" name="APPT_ID" class="form-control">
+                    <label class="form-label fw-semibold" for="add_record_appointment">Appointment ID</label>
+                    <select name="APPT_ID" id="add_record_appointment" class="form-select" required>
+                        <option value="" selected disabled>Select a patient first</option>
+                    </select>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Consultation Date</label>
@@ -125,12 +132,19 @@
             </div>
             <div class="modal-body">
                 <div class="mb-3">
-                    <label class="form-label fw-semibold" for="edit_record_patient">Patient ID</label>
-                    <input type="number" name="PATIENT_ID" id="edit_record_patient" class="form-control" required>
+                    <label class="form-label fw-semibold" for="edit_record_patient">Patient name</label>
+                    <select name="PATIENT_ID" id="edit_record_patient" class="form-select" required>
+                        <option value="" disabled>Select a patient</option>
+                        @foreach($patients as $patient)
+                            <option value="{{ $patient['id'] }}">{{ $patient['name'] }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold" for="edit_record_appointment">Appointment ID</label>
-                    <input type="number" name="APPT_ID" id="edit_record_appointment" class="form-control" required>
+                    <select name="APPT_ID" id="edit_record_appointment" class="form-select" required>
+                        <option value="" disabled>Select a patient first</option>
+                    </select>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold" for="edit_record_date">Consultation Date</label>
@@ -160,12 +174,42 @@
 
 @push('scripts')
 <script>
+const appointmentChoices = @json($appointmentChoices);
+
+function fillAppointmentOptions(patientSelect, appointmentSelect, selectedId) {
+    const patientId = patientSelect.value;
+    appointmentSelect.innerHTML = '';
+    const placeholder = new Option(patientId ? 'Select an appointment' : 'Select a patient first', '');
+    placeholder.disabled = true;
+    placeholder.selected = !selectedId;
+    appointmentSelect.add(placeholder);
+
+    appointmentChoices
+        .filter(function (item) { return String(item.patient_id) === String(patientId); })
+        .forEach(function (item) {
+            const option = new Option(item.label, item.id);
+            if (String(item.id) === String(selectedId)) {
+                option.selected = true;
+            }
+            appointmentSelect.add(option);
+        });
+}
+
+document.getElementById('add_record_patient')?.addEventListener('change', function () {
+    fillAppointmentOptions(this, document.getElementById('add_record_appointment'));
+});
+
+document.getElementById('edit_record_patient')?.addEventListener('change', function () {
+    fillAppointmentOptions(this, document.getElementById('edit_record_appointment'));
+});
+
 document.getElementById('editMedicalRecordModal')?.addEventListener('show.bs.modal', function (event) {
     const button = event.relatedTarget;
     if (!button) return;
     document.getElementById('editMedicalRecordForm').action = '/medical-records/' + button.getAttribute('data-id');
-    document.getElementById('edit_record_patient').value = button.getAttribute('data-patient') || '';
-    document.getElementById('edit_record_appointment').value = button.getAttribute('data-appointment') || '';
+    const patientSelect = document.getElementById('edit_record_patient');
+    patientSelect.value = button.getAttribute('data-patient') || '';
+    fillAppointmentOptions(patientSelect, document.getElementById('edit_record_appointment'), button.getAttribute('data-appointment'));
     document.getElementById('edit_record_date').value = button.getAttribute('data-date') || '';
     document.getElementById('edit_record_diagnosis').value = button.getAttribute('data-diagnosis') || '';
     document.getElementById('edit_record_dosage').value = button.getAttribute('data-dosage') || '';

@@ -4,13 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Models\Inventory;
+use App\Models\LowStockReport;
 use App\Models\MedicalRecord;
 use App\Support\ClinicAccess;
 
 class DashboardController extends Controller
 {
-    private const LOW_STOCK_AT = 10;
-
     public function __construct(private ClinicAccess $access)
     {
     }
@@ -56,12 +55,29 @@ class DashboardController extends Controller
 
     public function notifyLogistics()
     {
-        $low = Inventory::query()->where('ITEM_QUANTITY', '<=', self::LOW_STOCK_AT)->count();
-        $message = $low > 0
-            ? 'Logistics has been notified about '.$low.' low-stock item'.($low === 1 ? '' : 's').'.'
-            : 'Logistics has been notified. All inventory stock levels are within range.';
+        $items = Inventory::query()->lowStock()->orderBy('ITEM_QUANTITY')->get();
 
-        return redirect()->route('dashboard')->with('success', $message);
+        LowStockReport::query()->delete();
+
+        LowStockReport::create([
+            'notified_by' => auth()->user()?->name ?: auth()->user()?->email,
+            'items' => $items->map(fn (Inventory $item) => [
+                'code' => $item->ITEM_CODE,
+                'generic_name' => $item->GENERIC_NAME,
+                'brand_name' => $item->BRAND_NAME,
+                'dosage' => trim(($item->ITEM_DOSAGE ?: '').' '.($item->ITEM_UNIT ?: '').' '.($item->ITEM_FORM ?: '')),
+                'category' => $item->ITEM_CATEGORY,
+                'quantity' => $item->ITEM_QUANTITY,
+                'expiration_date' => $item->ITEM_EXPIRATION_DATE,
+            ])->values()->all(),
+        ]);
+
+        $low = $items->count();
+        $message = $low > 0
+            ? 'Logistics report saved in Inventory for '.$low.' low-stock item'.($low === 1 ? '' : 's').'.'
+            : 'Logistics report saved in Inventory. All stock levels are within range.';
+
+        return redirect('/inventory')->with('success', $message);
     }
 
     private function staffData(): array
@@ -72,10 +88,7 @@ class DashboardController extends Controller
             'appointmentsToday' => Appointment::query()->whereDate('SCHEDULED_AT', today())->count(),
             'patientsQueued' => Appointment::query()->whereDate('SCHEDULED_AT', today())->queued()->count(),
             'queue' => $this->queueQuery($treatmentFirst)->take(8)->get(),
-            'lowStockItems' => Inventory::query()
-                ->where('ITEM_QUANTITY', '<=', self::LOW_STOCK_AT)
-                ->orderBy('ITEM_QUANTITY')
-                ->get(),
+            'lowStockItems' => Inventory::query()->lowStock()->orderBy('ITEM_QUANTITY')->get(),
             'treatmentFirst' => $treatmentFirst,
         ];
     }

@@ -4,7 +4,6 @@ namespace App\Support;
 
 use App\Models\Appointment;
 use App\Models\AppUser;
-use App\Models\DoctorSchedule;
 use App\Models\DutySlotState;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -184,11 +183,6 @@ class DutyBoard
             ->orderBy('SCHEDULED_AT')
             ->get();
 
-        $schedules = DoctorSchedule::query()
-            ->where('DOCTOR_NAME', $name)
-            ->whereDate('AVAILABLE_DATE', $day->toDateString())
-            ->get();
-
         $overrides = DutySlotState::query()
             ->where('PRACTITIONER_NAME', $name)
             ->whereDate('SLOT_DATE', $day->toDateString())
@@ -203,8 +197,7 @@ class DutyBoard
             $slotEnd = $cursor->copy()->addMinutes(30);
             $startKey = $cursor->format('H:i:s');
             $booked = $this->bookedDuring($appointments, $cursor, $slotEnd);
-            $onDuty = ClinicRoster::covers($name, $cursor, $slotEnd)
-                || $this->publishedCovers($schedules, $cursor, $slotEnd);
+            $onDuty = ClinicRoster::covers($name, $cursor, $slotEnd);
             $override = $overrides->get($startKey)?->STATUS;
             $patient = $booked->isEmpty() ? 'None' : $booked->pluck('PATIENT_NAME')->implode(', ');
 
@@ -335,20 +328,6 @@ class DutyBoard
 
             return $at->greaterThanOrEqualTo($start) && $at->lessThan($end);
         })->values();
-    }
-
-    private function publishedCovers(Collection $schedules, Carbon $start, Carbon $end): bool
-    {
-        foreach ($schedules as $schedule) {
-            $windowStart = $start->copy()->setTimeFromTimeString((string) $schedule->START_TIME);
-            $windowEnd = $start->copy()->setTimeFromTimeString((string) $schedule->END_TIME);
-
-            if ($start->greaterThanOrEqualTo($windowStart) && $end->lessThanOrEqualTo($windowEnd)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private function badge(string $status, string $patient): string

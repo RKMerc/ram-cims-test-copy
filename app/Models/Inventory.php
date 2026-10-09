@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Inventory extends Model
 {
+    public const LOW_STOCK_AT = 10;
+
     protected $table = 'inventory';
     protected $primaryKey = 'ITEM_CODE';
     
@@ -27,6 +29,11 @@ class Inventory extends Model
         'ITEM_QUANTITY',
         'ITEM_EXPIRATION_DATE'
     ];
+
+    public function scopeLowStock($query)
+    {
+        return $query->where('ITEM_QUANTITY', '<=', self::LOW_STOCK_AT);
+    }
 
     public static function nextItemCode(): int
     {

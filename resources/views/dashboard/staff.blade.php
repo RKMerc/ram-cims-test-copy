@@ -11,7 +11,7 @@
 @endif
 
 <div class="row g-4 mb-4">
-    <div class="col-md-6">
+    <div class="col-md-4">
         <div class="card h-100 border-start border-4" style="border-color:#003B7A !important;">
             <div class="card-body">
                 <h6 class="text-muted fw-semibold text-uppercase mb-2" style="font-size:.78rem; letter-spacing:.04em;">Appointments Today</h6>
@@ -19,11 +19,27 @@
             </div>
         </div>
     </div>
-    <div class="col-md-6">
+    <div class="col-md-4">
         <div class="card h-100 border-start border-4" style="border-color:#E1B11A !important;">
             <div class="card-body">
                 <h6 class="text-muted fw-semibold text-uppercase mb-2" style="font-size:.78rem; letter-spacing:.04em;">Total Patients Queued</h6>
                 <h2 class="fw-bold mb-0" style="color:#003B7A;">{{ $patientsQueued ?? 0 }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 border-start border-4" style="border-color:#b42318 !important;">
+            <div class="card-body">
+                <h6 class="text-muted fw-semibold text-uppercase mb-2" style="font-size:.78rem; letter-spacing:.04em;">Low Stock Alert</h6>
+                <h2 class="fw-bold mb-2" style="color:#003B7A;">{{ ($lowStockItems ?? collect())->count() }}</h2>
+                @forelse($lowStockItems ?? [] as $item)
+                    <div class="d-flex justify-content-between gap-2 py-1 border-top">
+                        <span class="fw-semibold">{{ $item->GENERIC_NAME }}</span>
+                        <span class="text-danger fw-semibold">{{ $item->ITEM_QUANTITY }} left</span>
+                    </div>
+                @empty
+                    <p class="text-muted mb-0">All inventory stock levels are normal.</p>
+                @endforelse
             </div>
         </div>
     </div>

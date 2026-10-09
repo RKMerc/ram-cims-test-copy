@@ -18,19 +18,7 @@ class RamseyPersona
 
     public function staff(): bool
     {
-        if (DeveloperMode::enabled()) {
-            $preview = session('clinic.ramsey_persona');
-
-            if ($preview === 'staff') {
-                return true;
-            }
-
-            if ($preview === 'student') {
-                return false;
-            }
-        }
-
-        return (bool) app(ClinicAccess::class)->account()?->isClinicStaff();
+        return app(ClinicAccess::class)->isStaff();
     }
 
     public function title(): string

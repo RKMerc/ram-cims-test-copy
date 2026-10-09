@@ -2,7 +2,7 @@
 
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AppointmentController;
-use App\Http\Controllers\Auth\MicrosoftController;
+use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DutySlotController;
 use App\Http\Controllers\InventoryController;
@@ -14,7 +14,10 @@ use App\Http\Controllers\UserAccountController;
 use App\Http\Controllers\VisitHistoryController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', [MicrosoftController::class, 'showLoginForm'])->name('login');
+Route::get('/', [LoginController::class, 'show'])->name('login');
+Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:5,1')->name('login.attempt');
+Route::get('/register', [LoginController::class, 'showRegister'])->name('register.show');
+Route::post('/register', [LoginController::class, 'register'])->middleware('throttle:5,1')->name('register');
 
 if (app()->environment('local')) {
     Route::get('/preview/{role}', [PreviewController::class, 'enter'])->name('preview');
@@ -22,18 +25,26 @@ if (app()->environment('local')) {
 
 Route::post('/users', [UserAccountController::class, 'store']);
 
-Route::get('/auth/microsoft', [MicrosoftController::class, 'redirectToMicrosoft'])->name('auth.microsoft');
-Route::get('/auth/microsoft/callback', [MicrosoftController::class, 'handleMicrosoftCallback']);
+Route::get('/auth/microsoft', [LoginController::class, 'redirectToMicrosoft'])->name('auth.microsoft');
+Route::get('/auth/microsoft/callback', [LoginController::class, 'handleMicrosoftCallback']);
+Route::get('/auth/google', [LoginController::class, 'redirectToGoogle'])->name('auth.google');
+Route::get('/auth/google/callback', [LoginController::class, 'handleGoogleCallback']);
 
 Route::middleware('auth')->group(function () {
+    Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+    Route::post('/portal/view', [LoginController::class, 'switchView'])->name('portal.view');
+
     Route::post('/ramsey/ask', [RamseyController::class, 'ask'])->name('ramsey.ask');
     Route::post('/ramsey/remind', [RamseyController::class, 'remind'])->name('ramsey.remind');
     Route::post('/ramsey/view', [RamseyController::class, 'view'])->name('ramsey.view');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
+    Route::get('/users', [UserAccountController::class, 'index'])->name('users.index');
+    Route::put('/users/{id}', [UserAccountController::class, 'update']);
     Route::get('/visit-history', [VisitHistoryController::class, 'index'])->name('visit-history');
 
+    Route::get('/appointments/slots', [AppointmentController::class, 'slots'])->name('appointments.slots');
     Route::resource('appointments', AppointmentController::class);
     Route::post('/duty-slots/book', [DutySlotController::class, 'book'])->name('duty-slots.book');
     Route::post('/duty-slots/cancel', [DutySlotController::class, 'cancel'])->name('duty-slots.cancel');
@@ -60,9 +71,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/records', [MedicalRecordController::class, 'store']);
         Route::put('/records/{id}', [MedicalRecordController::class, 'update']);
         Route::delete('/records/{id}', [MedicalRecordController::class, 'destroy']);
-
-        Route::get('/users', [UserAccountController::class, 'index'])->name('users.index');
-        Route::put('/users/{id}', [UserAccountController::class, 'update']);
 
         Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics');
         Route::get('/analytics/report', [AnalyticsController::class, 'report'])->name('analytics.report');

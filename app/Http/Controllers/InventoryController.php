@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Inventory;
+use App\Models\LowStockReport;
 use Illuminate\Http\Request;
 
 class InventoryController extends Controller
@@ -11,8 +12,9 @@ class InventoryController extends Controller
     {
         $supplies = Inventory::query()->orderBy('ITEM_CODE')->get();
         $nextItemCode = Inventory::nextItemCode();
+        $lowStockReport = LowStockReport::query()->latest()->first();
 
-        return view('inventory.index', compact('supplies', 'nextItemCode'));
+        return view('inventory.index', compact('supplies', 'nextItemCode', 'lowStockReport'));
     }
 
     public function store(Request $request)

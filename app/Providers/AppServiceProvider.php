@@ -3,8 +3,8 @@
 namespace App\Providers;
 
 use App\Support\ClinicAccess;
-use App\Support\DeveloperMode;
 use App\Support\DutyBoard;
+use App\Support\PortalGrant;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\View;
@@ -29,7 +29,8 @@ class AppServiceProvider extends ServiceProvider
             $access = app(ClinicAccess::class);
             $view->with('clinicAccount', $access->account());
             $view->with('isClinicStaff', $access->isStaff());
-            $view->with('developerMode', DeveloperMode::enabled());
+            $view->with('canSwitchViews', PortalGrant::isDualView(auth()->user()?->email));
+            $view->with('canManageProfiles', PortalGrant::canManageProfiles(auth()->user()?->email, $access->account()));
         });
 
         View::composer('partials.duty-board', function ($view) {

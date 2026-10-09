@@ -76,6 +76,7 @@ class ClinicPortalTest extends TestCase
         $dashboard->assertSee('View My Active Prescriptions');
         $dashboard->assertDontSee('RAMsey Clinic Operations Assistant');
         $dashboard->assertDontSee('Dev preview');
+        $dashboard->assertDontSee('View as');
         $dashboard->assertDontSee('APC Clinic Operations Dashboard');
         $dashboard->assertDontSee('Other Patient');
         $dashboard->assertDontSee('>Inventory<');
@@ -95,14 +96,29 @@ class ClinicPortalTest extends TestCase
         $appointments->assertSee('Dr. Reyes');
         $appointments->assertDontSee('Other Patient');
         $appointments->assertDontSee('Publish Doctor Availability');
+        $appointments->assertDontSee('Weekly Duty Hours');
+        $appointments->assertDontSee('Additional Published Availability');
+
+        $physician = 'Dr. Marciano Fidel L. Avendaño';
+        $offDuty = now()->next(\Carbon\Carbon::SUNDAY)->setTime(14, 0, 0)->format('Y-m-d H:i:s');
+        $onDuty = now()->next(\Carbon\Carbon::THURSDAY)->setTime(14, 0, 0)->format('Y-m-d H:i:s');
 
         $this->actingAs($user)->post('/appointments', [
             'PATIENT_ID' => '9999999999',
             'PATIENT_NAME' => 'Someone Else',
             'APPOINTMENT_TYPE' => 'Routine Checkup',
             'APPOINTMENT_REASON' => 'Annual check-up',
-            'ATTENDING_PHYSICIAN' => 'Dr. Cruz',
-            'SCHEDULED_AT' => now()->addDays(2)->format('Y-m-d H:i:s'),
+            'ATTENDING_PHYSICIAN' => $physician,
+            'SCHEDULED_AT' => $offDuty,
+        ])->assertSessionHasErrors('SCHEDULED_AT');
+
+        $this->actingAs($user)->post('/appointments', [
+            'PATIENT_ID' => '9999999999',
+            'PATIENT_NAME' => 'Someone Else',
+            'APPOINTMENT_TYPE' => 'Routine Checkup',
+            'APPOINTMENT_REASON' => 'Annual check-up',
+            'ATTENDING_PHYSICIAN' => $physician,
+            'SCHEDULED_AT' => $onDuty,
         ])->assertRedirect('/appointments');
 
         $this->assertDatabaseHas('appointments', [
@@ -168,8 +184,13 @@ class ClinicPortalTest extends TestCase
         $dashboard->assertDontSee('Visit History');
         $dashboard->assertDontSee('Welcome, Mina');
 
-        $this->actingAs($user)->get('/inventory')->assertOk();
-        $this->actingAs($user)->get('/medical-records')->assertOk();
+        $this->actingAs($user)->get('/inventory')->assertOk()->assertDontSee('e.g., 500mg')->assertSee('Amount only');
+        $this->actingAs($user)->post(route('dashboard.notify-logistics'))->assertRedirect('/inventory');
+        $this->actingAs($user)->post(route('dashboard.notify-logistics'))->assertRedirect('/inventory');
+        $this->assertSame(1, \App\Models\LowStockReport::query()->count());
+        $this->actingAs($user)->get('/inventory')->assertSee('Low stock report')->assertSee('Paracetamol');
+        $this->actingAs($user)->get('/medical-records')->assertOk()->assertSee('Patient name')->assertSee('Ana Cruz');
+        $this->actingAs($user)->get('/users')->assertForbidden();
         $this->actingAs($user)->get('/records')->assertOk();
         $this->actingAs($user)->get('/analytics')->assertOk();
 
@@ -199,6 +220,30 @@ class ClinicPortalTest extends TestCase
         $dashboard->assertSee('APC Clinic Operations Dashboard');
         $dashboard->assertSee('All inventory stock levels are normal.');
         $this->actingAs($user)->get('/inventory')->assertOk();
+        $this->actingAs($user)->get('/users')->assertOk()->assertSee('Edit User Account');
+    }
+
+    public function test_only_itro_admins_and_developers_can_edit_profiles(): void
+    {
+        $student = $this->signIn('Student', 'ana.profile@apc.edu.ph', 'Ana', 'Cruz', '2024100096');
+        $this->actingAs($student)->get('/profile')->assertOk()->assertDontSee('Open Accounts')->assertDontSee('Save Account');
+        $this->actingAs($student)->get('/users')->assertForbidden();
+        $this->actingAs($student)->put('/users/'.$student->id, [])->assertForbidden();
+
+        $nurse = $this->signIn('Medical Staff', 'nurse.profile@apc.edu.ph', 'Nora', 'Reyes', 'EMP-77', 'Nurse');
+        $this->actingAs($nurse)->get('/users')->assertForbidden();
+
+        foreach ([
+            'jaalba@student.apc.edu.ph',
+            'jerichoalba8@gmail.com',
+            'csdeguzman@student.apc.edu.ph',
+            'madsoncha@gmail.com',
+            'lccruz@student.apc.edu.ph',
+            'latrellallencruz2314@gmail.com',
+        ] as $index => $email) {
+            $developer = $this->signIn('Student', $email, 'Dev', 'User', '2024101'.str_pad((string) $index, 3, '0', STR_PAD_LEFT));
+            $this->actingAs($developer)->get('/users')->assertOk()->assertSee('Accounts');
+        }
     }
 
     public function test_new_records_increment_and_existing_ids_stay_put(): void
@@ -263,8 +308,8 @@ class ClinicPortalTest extends TestCase
             'PATIENT_NAME' => 'Ana Cruz',
             'APPOINTMENT_TYPE' => 'Routine Checkup',
             'APPOINTMENT_REASON' => 'Updated reason',
-            'ATTENDING_PHYSICIAN' => 'Mina Reyes',
-            'SCHEDULED_AT' => now()->addDays(3)->format('Y-m-d H:i:s'),
+            'ATTENDING_PHYSICIAN' => 'Dr. Marciano Fidel L. Avendaño',
+            'SCHEDULED_AT' => now()->next(\Carbon\Carbon::THURSDAY)->setTime(15, 0, 0)->format('Y-m-d H:i:s'),
             'STATUS' => 'In Consultation',
         ])->assertOk();
 
@@ -273,14 +318,14 @@ class ClinicPortalTest extends TestCase
         $this->assertSame('2024100888', (string) $updated->PATIENT_ID);
         $this->assertSame('Routine Checkup', $updated->APPOINTMENT_TYPE);
         $this->assertSame('Updated reason', $updated->APPOINTMENT_REASON);
-        $this->assertSame('Mina Reyes', $updated->ATTENDING_PHYSICIAN);
+        $this->assertSame('Dr. Marciano Fidel L. Avendaño', $updated->ATTENDING_PHYSICIAN);
         $this->assertSame('In Consultation', $updated->STATUS);
         $this->assertNull(Appointment::find(99999));
 
         $page = $this->actingAs($user)->get('/appointments');
         $page->assertOk();
         $page->assertSee('Select attending physician');
-        $page->assertSee('Mina Reyes');
+        $page->assertSee('Updated reason');
         $page->assertSee('Select Doctor / Attending Physician');
         $page->assertSee('Dr. Marciano Fidel L. Avendaño - Doctor');
         $page->assertSee('value="'.Appointment::nextPatientId().'"', false);
@@ -577,32 +622,156 @@ class ClinicPortalTest extends TestCase
         });
     }
 
-    public function test_developer_preview_can_switch_ramsey_views_only_when_local(): void
+    public function test_only_listed_developers_can_switch_between_student_and_staff_views(): void
     {
-        $user = $this->signIn('Student', 'ana.preview@apc.edu.ph', 'Ana', 'Cruz', '2024100094');
+        $developer = $this->signIn('Student', 'jaalba@student.apc.edu.ph', 'Jericho', 'Alba', '2024100094');
 
-        $this->actingAs($user)->postJson('/ramsey/view', ['view' => 'staff'])->assertForbidden();
-
-        $this->app['env'] = 'local';
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
-
-        $staffView = $this->actingAs($user)->postJson('/ramsey/view', ['view' => 'staff']);
+        $staffView = $this->actingAs($developer)->postJson('/ramsey/view', ['view' => 'staff']);
         $staffView->assertOk();
         $staffView->assertJsonPath('staff', true);
         $staffView->assertJsonPath('title', 'RAMsey Clinic Operations Assistant');
 
-        $this->actingAs($user)->postJson('/ramsey/ask', [
+        $this->actingAs($developer)->postJson('/ramsey/ask', [
             'message' => 'Where is the inventory?',
         ])->assertOk()->assertSee('Open Inventory Manager');
+        $this->actingAs($developer)->get('/inventory')->assertOk();
 
-        $studentView = $this->actingAs($user)->postJson('/ramsey/view', ['view' => 'student']);
+        $studentView = $this->actingAs($developer)->postJson('/ramsey/view', ['view' => 'student']);
         $studentView->assertOk();
         $studentView->assertJsonPath('staff', false);
         $studentView->assertJsonPath('title', 'RAMsey Student Health Assistant');
 
-        $this->actingAs($user)->postJson('/ramsey/ask', [
+        $this->actingAs($developer)->postJson('/ramsey/ask', [
             'message' => 'Where is the inventory?',
         ])->assertJsonPath('reply', 'Sorry, this action is restricted to APC Clinic Staff.');
+        $this->actingAs($developer)->get('/inventory')->assertRedirect(route('dashboard'));
+
+        $this->app->forgetInstance(\App\Support\ClinicAccess::class);
+        $this->app['env'] = 'local';
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        $student = $this->signIn('Student', 'ana.preview@apc.edu.ph', 'Ana', 'Cruz', '2024100095');
+        $this->actingAs($student)->postJson('/ramsey/view', ['view' => 'staff'])->assertForbidden();
+        $this->actingAs($student)->get('/inventory')->assertRedirect(route('dashboard'));
+    }
+
+    public function test_login_offers_one_entry_and_hides_role_portals(): void
+    {
+        $page = $this->get('/');
+
+        $page->assertOk();
+        $page->assertSee('Log in');
+        $page->assertSeeInOrder([
+            'Log in',
+            'Create an account',
+            'Continue with Microsoft',
+        ]);
+        $page->assertDontSee('Continue with Google');
+        $page->assertDontSee('Google sign-in is not configured yet');
+        $page->assertDontSee('Full name');
+        $page->assertDontSee('Preview student portal');
+        $page->assertDontSee('Preview clinic staff portal');
+        $page->assertDontSee('There is no extra verification code');
+        $page->assertDontSee('new here?');
+        $page->assertDontSee('APC email or Gmail');
+        $page->assertDontSee('name@student.apc.edu.ph');
+
+        $register = $this->get('/register');
+        $register->assertOk();
+        $register->assertSee('Full name');
+        $register->assertSee('Email');
+        $register->assertSee('Password');
+        $register->assertSee('Confirm password');
+        $register->assertDontSee('APC email or Gmail');
+        $register->assertDontSee('name@student.apc.edu.ph');
+    }
+
+    public function test_google_sign_in_opens_the_account_chooser_and_permission_screen(): void
+    {
+        config([
+            'services.google.client_id' => 'ram-cims-client',
+            'services.google.client_secret' => 'ram-cims-secret',
+            'services.google.redirect' => 'http://127.0.0.1:8000/auth/google/callback',
+        ]);
+
+        $response = $this->get('/auth/google');
+
+        $response->assertRedirect();
+        $location = (string) $response->headers->get('Location');
+        $this->assertStringStartsWith('https://accounts.google.com/o/oauth2/auth', $location);
+
+        parse_str((string) parse_url($location, PHP_URL_QUERY), $query);
+        $this->assertSame('ram-cims-client', $query['client_id']);
+        $this->assertSame('http://127.0.0.1:8000/auth/google/callback', $query['redirect_uri']);
+        $this->assertSame('code', $query['response_type']);
+        $this->assertStringContainsString('select_account', $query['prompt']);
+        $this->assertStringContainsString('consent', $query['prompt']);
+        $this->assertStringContainsString('openid', $query['scope']);
+        $this->assertStringContainsString('profile', $query['scope']);
+        $this->assertStringContainsString('email', $query['scope']);
+    }
+
+    public function test_students_register_with_email_and_password_without_staff_access(): void
+    {
+        $this->post('/register', [
+            'name' => 'Ana Cruz',
+            'email' => 'ana.cruz@student.apc.edu.ph',
+            'password' => 'clinic-pass',
+            'password_confirmation' => 'clinic-pass',
+        ])->assertRedirect('/dashboard');
+
+        $this->get('/dashboard')->assertSee('Welcome, Ana')->assertDontSee('View as');
+        $this->get('/inventory')->assertRedirect(route('dashboard'));
+        $this->post('/portal/view', ['view' => 'staff'])->assertForbidden();
+    }
+
+    public function test_listed_clinic_emails_open_only_the_staff_portal(): void
+    {
+        $this->post('/register', [
+            'name' => 'Ana Mae Torre',
+            'email' => 'anamaet@apc.edu.ph',
+            'password' => 'clinic-pass',
+            'password_confirmation' => 'clinic-pass',
+        ])->assertRedirect('/dashboard');
+
+        $this->get('/dashboard')->assertSee('APC Clinic Operations Dashboard')->assertDontSee('View as');
+        $this->post('/portal/view', ['view' => 'student'])->assertForbidden();
+
+        $this->post('/logout');
+        $this->post('/register', [
+            'name' => 'Maria Magpantay',
+            'email' => 'mariam@apc.edu.ph',
+            'password' => 'clinic-pass',
+            'password_confirmation' => 'clinic-pass',
+        ])->assertRedirect('/dashboard');
+        $this->get('/inventory')->assertOk();
+    }
+
+    public function test_other_email_domains_cannot_register(): void
+    {
+        $this->post('/register', [
+            'name' => 'Outsider',
+            'email' => 'outsider@yahoo.com',
+            'password' => 'clinic-pass',
+            'password_confirmation' => 'clinic-pass',
+        ])->assertSessionHasErrors('email');
+    }
+
+    public function test_grant_list_covers_the_named_accounts(): void
+    {
+        foreach ([
+            'jaalba@student.apc.edu.ph',
+            'jerichoalba8@gmail.com',
+            'csdeguzman@student.apc.edu.ph',
+            'madsoncha@gmail.com',
+            'lccruz@student.apc.edu.ph',
+            'latrellallencruz2314@gmail.com',
+        ] as $email) {
+            $this->assertTrue(\App\Support\PortalGrant::isDualView($email));
+        }
+
+        $this->assertTrue(\App\Support\PortalGrant::isStaffOnly('anamaet@apc.edu.ph'));
+        $this->assertTrue(\App\Support\PortalGrant::isStaffOnly('mariam@apc.edu.ph'));
+        $this->assertFalse(\App\Support\PortalGrant::allowsEmail('person@yahoo.com'));
     }
 
     public function test_staff_can_view_and_download_the_analytics_pdf(): void

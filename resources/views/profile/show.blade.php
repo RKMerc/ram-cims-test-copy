@@ -6,7 +6,11 @@
 <div class="mb-4">
     <p class="text-uppercase fw-bold mb-1" style="color:#003B7A; letter-spacing:.08em; font-size:.78rem;">Asia Pacific College</p>
     <h1 class="h3 fw-bold mb-1" style="color:#003B7A;">Profile</h1>
-    <p class="text-muted mb-0">The account linked to your APC sign-in.</p>
+    @if($canManageProfiles ?? false)
+        <p class="text-muted mb-0">Open Accounts to update clinic profiles. This page stays read-only.</p>
+    @else
+        <p class="text-muted mb-0">The account linked to your APC sign-in.</p>
+    @endif
 </div>
 
 <div class="card border-0 shadow-sm">

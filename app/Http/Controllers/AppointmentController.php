@@ -6,8 +6,10 @@ use App\Models\Appointment;
 use App\Models\DoctorSchedule;
 use App\Models\ScheduleReminder;
 use App\Support\ClinicAccess;
+use App\Support\ClinicRoster;
 use App\Support\ScheduleAlerts;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 
 class AppointmentController extends Controller
@@ -43,19 +45,37 @@ class AppointmentController extends Controller
 
         $appointments = $query->orderBy('SCHEDULED_AT', 'asc')->get();
 
-        $schedules = $isClinicStaff
-            ? DoctorSchedule::where('AVAILABLE_DATE', '>=', Carbon::today())
-                ->orderBy('AVAILABLE_DATE', 'asc')
-                ->get()
-            : collect();
-
         return view('appointments.index', [
             'appointments' => $appointments,
-            'schedules' => $schedules,
             'isClinicStaff' => $isClinicStaff,
             'nextPatientId' => Appointment::nextPatientId(),
             'nextAppointmentId' => Appointment::nextAppointmentId(),
         ]);
+    }
+
+    public function slots(Request $request)
+    {
+        $data = $request->validate([
+            'physician' => ['required', 'string', Rule::in(ClinicRoster::names())],
+            'date' => 'required|date',
+            'appointment_id' => 'nullable|integer',
+        ]);
+
+        $date = Carbon::parse($data['date'])->startOfDay();
+        $slots = $this->openSlots(
+            $data['physician'],
+            $date,
+            isset($data['appointment_id']) ? (int) $data['appointment_id'] : null
+        );
+
+        if (! $this->access->isStaff()) {
+            $slots = array_values(array_filter(
+                $slots,
+                fn (array $slot) => Carbon::parse($slot['value'])->greaterThan(now())
+            ));
+        }
+
+        return response()->json(['slots' => $slots]);
     }
 
     public function storeSchedule(Request $request)
@@ -100,10 +120,14 @@ class AppointmentController extends Controller
             'PATIENT_NAME'        => 'required|string|max:255',
             'APPOINTMENT_TYPE'    => 'required|string|max:255',
             'APPOINTMENT_REASON'  => 'required|string',
-            'ATTENDING_PHYSICIAN' => 'required|string|max:255',
+            'ATTENDING_PHYSICIAN' => ['required', 'string', Rule::in(ClinicRoster::names())],
             'SCHEDULED_AT'        => 'required|date',
             'STATUS'              => 'nullable|string'
         ]);
+
+        if ($message = $this->dutyError($validated['ATTENDING_PHYSICIAN'], $validated['SCHEDULED_AT'])) {
+            return back()->withErrors(['SCHEDULED_AT' => $message])->withInput();
+        }
 
         Appointment::create($validated);
 
@@ -121,10 +145,17 @@ class AppointmentController extends Controller
             'PATIENT_NAME'        => 'required|string|max:255',
             'APPOINTMENT_TYPE'    => 'required|string|max:255',
             'APPOINTMENT_REASON'  => 'required|string',
-            'ATTENDING_PHYSICIAN' => 'required|string|max:255',
+            'ATTENDING_PHYSICIAN' => ['required', 'string', Rule::in(ClinicRoster::names())],
             'SCHEDULED_AT'        => 'required|date',
             'STATUS'              => 'required|string'
         ]);
+
+        if ($message = $this->dutyError($validated['ATTENDING_PHYSICIAN'], $validated['SCHEDULED_AT'], (int) $appointment->APPOINTMENT_ID)) {
+            return response()->json([
+                'message' => $message,
+                'errors' => ['SCHEDULED_AT' => [$message]],
+            ], 422);
+        }
 
         $appointment->update($validated);
 
@@ -144,5 +175,52 @@ class AppointmentController extends Controller
     private function ensureStaff(): void
     {
         abort_unless($this->access->isStaff(), 403, 'Clinic staff access only.');
+    }
+
+    private function dutyError(string $physician, string $scheduledAt, ?int $ignoreId = null): ?string
+    {
+        try {
+            $start = Carbon::parse($scheduledAt)->seconds(0);
+        } catch (\Throwable) {
+            return 'Choose a time from this physician\'s duty schedule.';
+        }
+
+        if (! ClinicRoster::hasSlot($physician, $start)) {
+            return 'That physician has no duty schedule at this date and time.';
+        }
+
+        if (! $this->access->isStaff() && $start->lessThanOrEqualTo(now())) {
+            return 'Choose an upcoming duty time slot.';
+        }
+
+        $taken = Appointment::query()
+            ->where('ATTENDING_PHYSICIAN', $physician)
+            ->where('SCHEDULED_AT', $start->format('Y-m-d H:i:s'))
+            ->whereRaw("LOWER(COALESCE(STATUS, '')) != 'cancelled'")
+            ->when($ignoreId, fn ($query) => $query->where('APPOINTMENT_ID', '!=', $ignoreId))
+            ->exists();
+
+        if ($taken) {
+            return 'That duty slot is already booked. Choose another time.';
+        }
+
+        return null;
+    }
+
+    private function openSlots(string $physician, Carbon $date, ?int $ignoreId = null): array
+    {
+        $taken = Appointment::query()
+            ->where('ATTENDING_PHYSICIAN', $physician)
+            ->whereDate('SCHEDULED_AT', $date->toDateString())
+            ->whereRaw("LOWER(COALESCE(STATUS, '')) != 'cancelled'")
+            ->when($ignoreId, fn ($query) => $query->where('APPOINTMENT_ID', '!=', $ignoreId))
+            ->pluck('SCHEDULED_AT')
+            ->map(fn ($at) => Carbon::parse($at)->format('Y-m-d H:i'))
+            ->all();
+
+        return array_values(array_filter(
+            ClinicRoster::slotsOn($physician, $date),
+            fn (array $slot) => ! in_array(substr($slot['value'], 0, 16), $taken, true)
+        ));
     }
 }

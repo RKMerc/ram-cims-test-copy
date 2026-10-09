@@ -6,6 +6,8 @@ use App\Models\AppUser;
 use App\Models\AppUserMedicalStaff;
 use App\Models\SubUserType;
 use App\Models\UserType;
+use App\Support\ClinicAccess;
+use App\Support\PortalGrant;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -13,6 +15,8 @@ class UserAccountController extends Controller
 {
     public function index()
     {
+        $this->authorizeProfiles();
+
         return view('users.index', [
             'users' => AppUser::query()->with(['userType', 'medicalStaff.subUserType'])->orderBy('LastName')->orderBy('FirstName')->get(),
             'types' => UserType::query()->orderBy('Name')->get(),
@@ -22,6 +26,8 @@ class UserAccountController extends Controller
 
     public function update(Request $request, $id)
     {
+        $this->authorizeProfiles();
+
         $account = AppUser::query()->findOrFail($id);
 
         $validated = $request->validate([
@@ -107,5 +113,13 @@ class UserAccountController extends Controller
         }
 
         return redirect()->back()->with('success', 'User account saved in AppUser.');
+    }
+
+    private function authorizeProfiles(): void
+    {
+        abort_unless(
+            PortalGrant::canManageProfiles(auth()->user()?->email, app(ClinicAccess::class)->account()),
+            403
+        );
     }
 }

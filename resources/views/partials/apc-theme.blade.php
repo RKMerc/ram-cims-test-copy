@@ -82,16 +82,6 @@
         position: relative;
     }
 
-    .app-shell::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        background: url("{{ asset('images/apc-logo.png') }}") center 42% / min(520px, 70vw) no-repeat;
-        opacity: 0.1;
-        pointer-events: none;
-        z-index: 0;
-    }
-
     .app-nav,
     .app-main,
     .app-footer,
@@ -119,8 +109,8 @@
     .brand-mark {
         width: 52px;
         height: 52px;
-        border-radius: 8px;
-        background: #E1B11A;
+        border-radius: 50%;
+        background: transparent;
         padding: 0;
         object-fit: cover;
     }
@@ -200,9 +190,38 @@
     }
 
     .app-links a:hover,
-    .app-links a.active {
+    .app-links a.active,
+    .view-switch button:hover,
+    .view-switch button.is-active,
+    .logout-link:hover {
         color: #003B7A;
         background: #E1B11A;
+    }
+
+    .view-switch {
+        display: flex;
+        align-items: center;
+        gap: 0.15rem;
+        margin-right: 0.35rem;
+    }
+
+    .view-switch span {
+        color: #E1B11A;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        padding-right: 0.2rem;
+    }
+
+    .view-switch button,
+    .logout-link {
+        border: 0;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.84);
+        font-weight: 600;
+        border-radius: 999px;
+        padding: 0.45rem 0.8rem;
     }
 
     .app-main {
@@ -471,27 +490,20 @@
 
     .guest-shell {
         min-height: 100vh;
-        display: grid;
-        place-items: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
         padding: 1.5rem;
         background: #003B7A;
         color: #fff;
         position: relative;
     }
 
-    .guest-shell::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        background: url("{{ asset('images/apc-logo.png') }}") center / min(640px, 90vw) no-repeat;
-        opacity: 0.16;
-        pointer-events: none;
-    }
-
     .guest-card {
         position: relative;
         z-index: 1;
         width: min(460px, 100%);
+        margin: auto;
         background: #fff;
         color: #10243f;
         border-radius: 22px;
@@ -502,8 +514,11 @@
 
     .guest-card img {
         width: 148px;
-        height: auto;
+        height: 148px;
         margin-bottom: 0.5rem;
+        border-radius: 50%;
+        object-fit: cover;
+        background: transparent;
     }
 
     .guest-card .eyebrow {
@@ -519,6 +534,55 @@
         flex-direction: column;
         gap: 0.6rem;
         margin-top: 1.25rem;
+    }
+
+    .register-dialog {
+        width: min(440px, calc(100% - 2rem));
+        max-height: calc(100vh - 2rem);
+        overflow: auto;
+        border: 0;
+        border-radius: 18px;
+        padding: 1.25rem 1.25rem 1.1rem;
+        color: #10243f;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    }
+
+    .register-dialog::backdrop {
+        background: rgba(8, 24, 48, 0.55);
+    }
+
+    .sign-in-details {
+        margin-top: 1.25rem;
+        text-align: left;
+    }
+
+    .sign-in-details > summary {
+        list-style: none;
+        width: 100%;
+    }
+
+    .sign-in-details > summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .sign-in-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 0.7rem;
+        margin-top: 1rem;
+        text-align: left;
+    }
+
+    .sign-in-note,
+    .sign-in-or {
+        color: #5c6b82;
+        font-size: 0.92rem;
+        text-align: center;
+        margin: 0;
+    }
+
+    .sign-in-form .form-control {
+        text-align: left;
     }
 
     .guest-note {

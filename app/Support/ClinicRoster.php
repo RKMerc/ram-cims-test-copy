@@ -56,8 +56,8 @@ class ClinicRoster
             self::account('marciano.avendano@apc.edu.ph', 'EMP-MD-01', 'Marciano Fidel', 'L.', 'Avendaño', 'Dr. Marciano Fidel L. Avendaño', 'Physician'),
             self::account('winnie.sy@apc.edu.ph', 'EMP-DT-01', 'Winnie Ann', 'L.', 'Sy', 'Dr. Winnie Ann L. Sy', 'Dentist'),
             self::account('rosalie.samoza@apc.edu.ph', 'EMP-DT-02', 'Ma. Rosalie', 'R.', 'Samoza', 'Dr. Ma. Rosalie R. Samoza', 'Dentist'),
-            self::account('anamae.torre@apc.edu.ph', 'EMP-RN-01', 'Ana Mae', 'J.', 'Torre', 'Ana Mae J. Torre, R.N.', 'Nurse'),
-            self::account('lolita.magpantay@apc.edu.ph', 'EMP-RN-02', 'Maria Lolita Beatriz', 'P.', 'Magpantay', 'Maria Lolita Beatriz P. Magpantay, R.N.', 'Nurse'),
+            self::account('anamaet@apc.edu.ph', 'EMP-RN-01', 'Ana Mae', 'J.', 'Torre', 'Ana Mae J. Torre, R.N.', 'Nurse'),
+            self::account('mariam@apc.edu.ph', 'EMP-RN-02', 'Maria Lolita Beatriz', 'P.', 'Magpantay', 'Maria Lolita Beatriz P. Magpantay, R.N.', 'Nurse'),
         ];
     }
 
@@ -171,6 +171,51 @@ class ClinicRoster
         return false;
     }
 
+    public static function slotsOn(string $name, Carbon $date): array
+    {
+        $person = collect(self::people())->firstWhere('name', $name);
+
+        if (! $person) {
+            return [];
+        }
+
+        $slots = [];
+        $weekday = $date->dayOfWeekIso;
+
+        foreach ($person['shifts'] as $shift) {
+            if (! in_array($weekday, $shift['weekdays'], true)) {
+                continue;
+            }
+
+            $cursor = $date->copy()->startOfDay()->setTimeFromTimeString($shift['start']);
+            $shiftEnd = $date->copy()->startOfDay()->setTimeFromTimeString($shift['end']);
+
+            while ($cursor->copy()->addHour()->lessThanOrEqualTo($shiftEnd)) {
+                $slotEnd = $cursor->copy()->addHour();
+                $slots[] = [
+                    'value' => $cursor->format('Y-m-d H:i:s'),
+                    'label' => $cursor->format('g:i A').' – '.$slotEnd->format('g:i A'),
+                ];
+                $cursor->addHour();
+            }
+        }
+
+        return $slots;
+    }
+
+    public static function hasSlot(string $name, Carbon $start): bool
+    {
+        $needle = $start->copy()->seconds(0)->format('Y-m-d H:i:s');
+
+        foreach (self::slotsOn($name, $start) as $slot) {
+            if ($slot['value'] === $needle) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static function ensureAccounts(): void
     {
         if (! Schema::hasTable('AppUser') || ! Schema::hasTable('AppUser_MedicalStaff') || ! Schema::hasTable('SubUserType')) {
@@ -184,16 +229,18 @@ class ClinicRoster
         }
 
         foreach (self::accounts() as $account) {
-            $user = AppUser::query()->updateOrCreate(
-                ['EmailAddress' => $account['email']],
-                [
-                    'Student_Employee_No' => $account['number'],
-                    'FirstName' => $account['first'],
-                    'MiddleName' => $account['middle'],
-                    'LastName' => $account['last'],
-                    'UserTypeId' => $typeId,
-                ]
-            );
+            $user = AppUser::query()->where('Student_Employee_No', $account['number'])->first()
+                ?? new AppUser(['EmailAddress' => $account['email']]);
+
+            $user->fill([
+                'EmailAddress' => $account['email'],
+                'Student_Employee_No' => $account['number'],
+                'FirstName' => $account['first'],
+                'MiddleName' => $account['middle'],
+                'LastName' => $account['last'],
+                'UserTypeId' => $typeId,
+            ]);
+            $user->save();
 
             $subId = SubUserType::query()->where('Name', $account['subtype'])->value('Id');
 

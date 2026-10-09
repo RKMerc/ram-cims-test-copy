@@ -4,14 +4,6 @@
 
 @section('content')
     <div>
-        
-        @if(session('success'))
-            <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
-                <strong>Success!</strong> {{ session('success') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        @endif
-
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h2 class="text-primary fw-bold mb-0">RAM-CIMS Inventory Stock</h2>
@@ -22,6 +14,52 @@
             </button>
         </div>
         
+        @if($lowStockReport ?? null)
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3">
+                    <div class="fw-bold" style="color:#003B7A;">Low stock report</div>
+                    <div class="text-muted small">
+                        {{ $lowStockReport->created_at?->timezone(config('app.timezone'))->format('M d, Y h:i A') }}
+                        @if($lowStockReport->notified_by)
+                            · {{ $lowStockReport->notified_by }}
+                        @endif
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Code</th>
+                                <th>Generic Name</th>
+                                <th>Brand</th>
+                                <th>Dosage</th>
+                                <th>Category</th>
+                                <th>Expiration</th>
+                                <th class="text-end pe-3">Quantity</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($lowStockReport->items ?? [] as $item)
+                                <tr>
+                                    <td class="ps-3 fw-semibold">{{ $item['code'] ?? '—' }}</td>
+                                    <td>{{ $item['generic_name'] ?? '—' }}</td>
+                                    <td>{{ $item['brand_name'] ?: 'N/A' }}</td>
+                                    <td>{{ $item['dosage'] ?: 'N/A' }}</td>
+                                    <td>{{ $item['category'] ?? '—' }}</td>
+                                    <td>{{ $item['expiration_date'] ?: 'N/A' }}</td>
+                                    <td class="text-end pe-3 fw-bold text-danger">{{ $item['quantity'] ?? 0 }} pcs</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="7" class="text-center py-4 text-muted">No items were below the low-stock level.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        @endif
+
         <div class="card shadow-sm">
             <div class="card-body p-0">
                 <table class="table table-hover table-striped mb-0 align-middle">
@@ -116,7 +154,8 @@
                         </div>
                         <div class="col-md-6">
                             <label for="ITEM_DOSAGE" class="form-label fw-semibold">Dosage</label>
-                            <input type="text" class="form-control" id="ITEM_DOSAGE" name="ITEM_DOSAGE" placeholder="e.g., 500mg">
+                            <input type="text" class="form-control" id="ITEM_DOSAGE" name="ITEM_DOSAGE" placeholder="500" inputmode="decimal">
+                            <div class="form-text">Amount only. Choose the unit below.</div>
                             <label for="ITEM_UNIT" class="form-label fw-semibold mt-2">Unit</label>
                             <select class="form-select" id="ITEM_UNIT" name="ITEM_UNIT">
                                 @include('partials.dosage-unit-options')
@@ -180,7 +219,8 @@
                         </div>
                         <div class="col-md-6">
                             <label for="edit_ITEM_DOSAGE" class="form-label fw-semibold">Dosage</label>
-                            <input type="text" class="form-control" id="edit_ITEM_DOSAGE" name="ITEM_DOSAGE" placeholder="e.g., 500mg">
+                            <input type="text" class="form-control" id="edit_ITEM_DOSAGE" name="ITEM_DOSAGE" placeholder="500" inputmode="decimal">
+                            <div class="form-text">Amount only. Choose the unit below.</div>
                             <label for="edit_ITEM_UNIT" class="form-label fw-semibold mt-2">Unit</label>
                             <select class="form-select" id="edit_ITEM_UNIT" name="ITEM_UNIT">
                                 @include('partials.dosage-unit-options')

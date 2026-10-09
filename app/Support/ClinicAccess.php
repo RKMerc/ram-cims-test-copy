@@ -67,8 +67,14 @@ class ClinicAccess
 
     public function isStaff(): bool
     {
-        if (DeveloperMode::enabled() && auth()->check()) {
+        $email = auth()->user()?->email;
+
+        if (PortalGrant::isStaffOnly($email)) {
             return true;
+        }
+
+        if (PortalGrant::isDualView($email)) {
+            return session('clinic.portal_view') === 'staff';
         }
 
         return (bool) $this->account()?->isClinicStaff();

@@ -3,7 +3,6 @@
 namespace App\Http\Middleware;
 
 use App\Support\ClinicAccess;
-use App\Support\DeveloperMode;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,7 +19,7 @@ class EnsureClinicStaff
             return redirect()->guest(route('login'));
         }
 
-        if (DeveloperMode::enabled() || $this->access->isStaff()) {
+        if ($this->access->isStaff()) {
             return $next($request);
         }
 

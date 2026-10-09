@@ -14,6 +14,10 @@
         @endunless
     </div>
 
+    @if($errors->any())
+        <div class="alert alert-warning">{{ $errors->first() }}</div>
+    @endif
+
     @if($isClinicStaff)
     <!-- Filter/Search Bar -->
     <div class="card mb-4 shadow-sm border-0 rounded-3">
@@ -164,14 +168,21 @@
                     </select>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold">Attending Physician</label>
-                    <select name="ATTENDING_PHYSICIAN" class="form-select" required>
+                    <label class="form-label fw-semibold" for="createPhysician">Attending Physician</label>
+                    <select name="ATTENDING_PHYSICIAN" id="createPhysician" class="form-select duty-physician" required>
                         @include('partials.physician-options')
                     </select>
                 </div>
-                <div class="col-12">
-                    <label class="form-label fw-semibold">Scheduled Date & Time</label>
-                    <input type="datetime-local" name="SCHEDULED_AT" class="form-control" required>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="createDate">Duty Date</label>
+                    <input type="date" id="createDate" class="form-control duty-date" min="{{ date('Y-m-d') }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="createSlot">Duty Time Slot</label>
+                    <select name="SCHEDULED_AT" id="createSlot" class="form-select duty-slot" required>
+                        <option value="" selected disabled>Choose a physician and date first</option>
+                    </select>
+                    <div class="form-text" id="createSlotHint">Times follow the physician on duty that day.</div>
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-semibold">Reason for Visit</label>
@@ -213,14 +224,21 @@
                     <input type="text" id="edit_APPOINTMENT_TYPE" name="APPOINTMENT_TYPE" class="form-control" required>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold">Attending Physician</label>
-                    <select id="edit_ATTENDING_PHYSICIAN" name="ATTENDING_PHYSICIAN" class="form-select" required>
+                    <label class="form-label fw-semibold" for="edit_ATTENDING_PHYSICIAN">Attending Physician</label>
+                    <select id="edit_ATTENDING_PHYSICIAN" name="ATTENDING_PHYSICIAN" class="form-select duty-physician" required>
                         @include('partials.physician-options')
                     </select>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold">Scheduled Date & Time</label>
-                    <input type="datetime-local" id="edit_SCHEDULED_AT" name="SCHEDULED_AT" class="form-control" required>
+                    <label class="form-label fw-semibold" for="editDate">Duty Date</label>
+                    <input type="date" id="editDate" class="form-control duty-date" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="editSlot">Duty Time Slot</label>
+                    <select id="editSlot" name="SCHEDULED_AT" class="form-select duty-slot" required>
+                        <option value="" selected disabled>Choose a physician and date first</option>
+                    </select>
+                    <div class="form-text" id="editSlotHint">Times follow the physician on duty that day.</div>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Status</label>
@@ -247,150 +265,6 @@
 @endif
 
 @include('partials.duty-board')
-
-<div class="card mb-4 shadow-sm border-0 rounded-3 overflow-hidden">
-    <div class="card-header bg-dark text-white py-3">
-        <h5 class="mb-0 fw-bold">Weekly Duty Hours</h5>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover table-striped mb-0 align-middle">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Name</th>
-                        <th>Role</th>
-                        <th>Duty Days</th>
-                        <th>Hours</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach(\App\Support\ClinicRoster::rows() as $duty)
-                    <tr>
-                        <td class="fw-semibold">{{ $duty['name'] }}</td>
-                        <td>{{ $duty['role'] }}</td>
-                        <td>{{ $duty['days'] }}</td>
-                        <td>{{ $duty['hours'] }}</td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-@if($isClinicStaff)
-<div class="card mb-5 shadow-sm border-0 rounded-3 overflow-hidden">
-    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
-        <h5 class="mb-0 fw-bold">Additional Published Availability</h5>
-        <button class="btn btn-sm btn-light fw-semibold rounded-2" data-bs-toggle="modal" data-bs-target="#addScheduleModal">+ Publish Doctor Availability</button>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover table-striped mb-0 align-middle">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Doctor Name</th>
-                        <th>Duty Date</th>
-                        <th>Target Schedule Window</th>
-                        <th>Advance Notice Status</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($schedules as $sched)
-                    @php
-                        $daysDiff = \Carbon\Carbon::now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($sched->AVAILABLE_DATE)->startOfDay(), false);
-                    @endphp
-                    <tr>
-                        <td class="fw-semibold">{{ $sched->DOCTOR_NAME }}</td>
-                        <td>{{ \Carbon\Carbon::parse($sched->AVAILABLE_DATE)->format('M d, Y (l)') }}</td>
-                        <td>{{ \Carbon\Carbon::parse($sched->START_TIME)->format('h:i A') }} - {{ \Carbon\Carbon::parse($sched->END_TIME)->format('h:i A') }}</td>
-                        <td>
-                            @if($daysDiff >= 2)
-                                <span class="badge bg-success">Listed 2+ Days Ahead</span>
-                            @elseif($daysDiff == 1)
-                                <span class="badge bg-warning text-dark">1 Day Ahead</span>
-                            @else
-                                <span class="badge bg-secondary">Today</span>
-                            @endif
-                        </td>
-                        <td class="text-muted">{{ $sched->NOTES ?? 'N/A' }}</td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="5" class="text-center py-4 text-muted">No doctor schedules published for upcoming days.</td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- Modal: Post Doctor Schedule -->
-<div class="modal fade" id="addScheduleModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <form action="/doctor-schedules" method="POST" class="modal-content rounded-3 overflow-hidden">
-            @csrf
-            <div class="modal-header bg-dark text-white">
-                <h5 class="modal-title fw-bold">Publish Doctor Duty Schedule</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body row g-3">
-                
-                <div class="col-12">
-                    <label class="form-label fw-semibold">Attending Physician</label>
-                    <select name="DOCTOR_NAME" class="form-select rounded-2" required>
-                        @include('partials.physician-options')
-                    </select>
-                </div>
-
-                <div class="col-12">
-                    <label class="form-label fw-semibold">Duty Date</label>
-                    <input type="date" name="AVAILABLE_DATE" class="form-control rounded-2" min="{{ date('Y-m-d') }}" value="{{ \Carbon\Carbon::today()->addDays(2)->format('Y-m-d') }}" required>
-                </div>
-
-                <!-- Time Slot selection matching 1-hour increments -->
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold">Start Time Slot</label>
-                    <select name="START_TIME" class="form-select rounded-2" required>
-                        <option value="08:00:00">8:00 AM</option>
-                        <option value="09:00:00">9:00 AM</option>
-                        <option value="10:00:00">10:00 AM</option>
-                        <option value="11:00:00">11:00 AM</option>
-                        <option value="13:00:00">1:00 PM</option>
-                        <option value="14:00:00">2:00 PM</option>
-                        <option value="15:00:00">3:00 PM</option>
-                        <option value="16:00:00">4:00 PM</option>
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold">End Time Slot</label>
-                    <select name="END_TIME" class="form-select rounded-2" required>
-                        <option value="09:00:00">9:00 AM</option>
-                        <option value="10:00:00">10:00 AM</option>
-                        <option value="11:00:00">11:00 AM</option>
-                        <option value="12:00:00">12:00 PM</option>
-                        <option value="14:00:00">2:00 PM</option>
-                        <option value="15:00:00">3:00 PM</option>
-                        <option value="16:00:00">4:00 PM</option>
-                        <option value="17:00:00">5:00 PM</option>
-                    </select>
-                </div>
-
-                <div class="col-12">
-                    <label class="form-label fw-semibold">Details / Notes</label>
-                    <input type="text" name="NOTES" class="form-control rounded-2" placeholder="General Consultation / Special notes">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary rounded-2" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" class="btn btn-dark fw-bold rounded-2">Publish Schedule</button>
-            </div>
-        </form>
-    </div>
-</div>
-@endif
 @endsection
 
 
@@ -421,11 +295,83 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('edit_PATIENT_NAME').value = button.getAttribute('data-patient') || '';
             document.getElementById('edit_APPOINTMENT_TYPE').value = button.getAttribute('data-type') || '';
             doctorSelect.value = doctor;
-            document.getElementById('edit_SCHEDULED_AT').value = button.getAttribute('data-schedule') || '';
             statusSelect.value = status;
             document.getElementById('edit_APPOINTMENT_REASON').value = button.getAttribute('data-reason') || '';
+
+            const scheduled = (button.getAttribute('data-schedule') || '').replace('T', ' ');
+            const editDate = document.getElementById('editDate');
+            editDate.value = scheduled.slice(0, 10);
+            loadDutySlots(
+                doctorSelect,
+                editDate,
+                document.getElementById('editSlot'),
+                document.getElementById('editSlotHint'),
+                scheduled,
+                button.getAttribute('data-id')
+            );
         });
     }
+
+    async function loadDutySlots(physicianSelect, dateInput, slotSelect, hint, selected, appointmentId) {
+        slotSelect.innerHTML = '<option value="" selected disabled>Choose a physician and date first</option>';
+        if (!physicianSelect.value || !dateInput.value) {
+            hint.textContent = 'Times follow the physician on duty that day.';
+            return;
+        }
+
+        hint.textContent = 'Checking the duty schedule…';
+        const params = new URLSearchParams({
+            physician: physicianSelect.value,
+            date: dateInput.value
+        });
+        if (appointmentId) params.set('appointment_id', appointmentId);
+
+        try {
+            const response = await fetch('/appointments/slots?' + params.toString(), {
+                headers: { 'Accept': 'application/json' }
+            });
+            const data = await response.json();
+            const slots = data.slots || [];
+            slotSelect.innerHTML = '';
+
+            if (!response.ok || !slots.length) {
+                slotSelect.add(new Option('No duty slot on this date', ''));
+                hint.textContent = 'This physician is not on duty that day. Choose another date.';
+                return;
+            }
+
+            const placeholder = new Option('Select a duty time slot', '');
+            placeholder.disabled = true;
+            placeholder.selected = true;
+            slotSelect.add(placeholder);
+            const wanted = (selected || '').slice(0, 16);
+            slots.forEach(function (slot) {
+                const option = new Option(slot.label, slot.value);
+                if (wanted && slot.value.slice(0, 16) === wanted) option.selected = true;
+                slotSelect.add(option);
+            });
+            hint.textContent = 'Only open times from this physician’s duty schedule are listed.';
+        } catch (error) {
+            hint.textContent = 'The duty schedule could not be loaded. Try again.';
+        }
+    }
+
+    function watchDutyForm(physicianId, dateId, slotId, hintId, appointmentIdInput) {
+        const physician = document.getElementById(physicianId);
+        const date = document.getElementById(dateId);
+        const slot = document.getElementById(slotId);
+        const hint = document.getElementById(hintId);
+        if (!physician || !date || !slot || !hint) return;
+        const refresh = function () {
+            const appointmentId = appointmentIdInput ? document.getElementById(appointmentIdInput)?.value : '';
+            loadDutySlots(physician, date, slot, hint, slot.value, appointmentId);
+        };
+        physician.addEventListener('change', refresh);
+        date.addEventListener('change', refresh);
+    }
+
+    watchDutyForm('createPhysician', 'createDate', 'createSlot', 'createSlotHint');
+    watchDutyForm('edit_ATTENDING_PHYSICIAN', 'editDate', 'editSlot', 'editSlotHint', 'edit_APPOINTMENT_ID');
 
     const editForm = document.getElementById('editAppointmentForm');
     if (editForm) {
