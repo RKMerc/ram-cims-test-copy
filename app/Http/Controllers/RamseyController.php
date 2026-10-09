@@ -10,10 +10,8 @@ use App\Support\ClinicRoster;
 use App\Support\DutyBoard;
 use App\Support\PortalGrant;
 use App\Support\RamseyPersona;
-use App\Support\ScheduleAlerts;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class RamseyController extends Controller
 {
@@ -46,39 +44,6 @@ class RamseyController extends Controller
         }
 
         return $this->answerStudent($message);
-    }
-
-    public function remind(Request $request)
-    {
-        if ($this->persona->staff()) {
-            return $this->reply('Slot alerts are part of the student health assistant.');
-        }
-
-        $data = $request->validate([
-            'email' => 'required|email|max:255',
-            'physician' => ['required', 'string', Rule::in(ClinicRoster::names())],
-            'date' => 'required|date',
-        ]);
-
-        $when = Carbon::parse($data['date'])->toDateString();
-        $result = ScheduleAlerts::watch(
-            $data['email'],
-            app(ClinicAccess::class)->account()?->fullName(),
-            $data['physician'],
-            $when,
-        );
-
-        $label = Carbon::parse($when)->format('F j, Y');
-
-        if ($result['open'] && $result['sent']) {
-            $reply = 'A slot is already open for '.$data['physician'].' on '.$label.'. I emailed '.$data['email'].'.';
-        } elseif ($result['open']) {
-            $reply = 'A slot is already open for '.$data['physician'].' on '.$label.', but the email could not be sent. Your alert is saved for '.$data['email'].'.';
-        } else {
-            $reply = 'Your alert is saved. When a slot opens for '.$data['physician'].' on '.$label.', I will email '.$data['email'].'.';
-        }
-
-        return $this->reply($reply);
     }
 
     public function view(Request $request)
@@ -150,7 +115,7 @@ class RamseyController extends Controller
 
         if ($name = $this->namedPhysician($message)) {
             return $this->reply(
-                $name." is on duty during:\n".$this->rosterHours($name)."\n\nChoose that physician and a date below if you want an email when a slot opens.",
+                $name." is on duty during:\n".$this->rosterHours($name),
                 [
                     ['label' => 'Schedule Check-Up', 'href' => '/appointments'],
                 ]
@@ -158,7 +123,9 @@ class RamseyController extends Controller
         }
 
         if ($this->mentions($message, ['remind', 'availability', 'slot', 'open'])) {
-            return $this->reply('Choose a physician and a date below. I will email you when an appointment slot opens.');
+            return $this->reply('Open Appointments and choose an open hour on the duty schedule.', [
+                ['label' => 'Schedule Check-Up', 'href' => '/appointments'],
+            ]);
         }
 
         if ($this->mentions($message, ['dashboard', 'home'])) {
@@ -168,7 +135,7 @@ class RamseyController extends Controller
         }
 
         return $this->reply(
-            'I can schedule a check-up, show your latest visit, list prescriptions on your chart, or email you when a slot opens.',
+            'I can schedule a check-up, show your latest visit, or list prescriptions on your chart.',
             [
                 ['label' => 'Schedule Check-Up', 'href' => '/appointments'],
                 ['label' => 'Visit history', 'href' => '/visit-history'],

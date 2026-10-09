@@ -27,7 +27,7 @@ class LoginController extends Controller
     public function redirectToMicrosoft()
     {
         if (! config('services.microsoft.client_id') || ! config('services.microsoft.client_secret')) {
-            return redirect()->route('login')->with('error', 'Microsoft sign-in is not configured yet. Use your email and password, or Google.');
+            return redirect()->route('login')->with('error', 'Microsoft sign-in is not configured yet. Use your email and password.');
         }
 
         return Socialite::driver('microsoft')->redirect();
@@ -44,34 +44,6 @@ class LoginController extends Controller
         }
 
         return $this->loginFromIdentity($microsoftUser->getEmail(), $microsoftUser->getName());
-    }
-
-    public function redirectToGoogle()
-    {
-        if (! config('services.google.client_id') || ! config('services.google.client_secret')) {
-            return redirect()->route('login')->with('error', 'Google sign-in is not configured yet. Use your email and password, or Microsoft.');
-        }
-
-        return Socialite::driver('google')
-            ->scopes(['openid', 'profile', 'email'])
-            ->with([
-                'prompt' => 'select_account consent',
-                'access_type' => 'online',
-            ])
-            ->redirect();
-    }
-
-    public function handleGoogleCallback()
-    {
-        try {
-            $googleUser = Socialite::driver('google')->user();
-        } catch (\Throwable $e) {
-            report($e);
-
-            return redirect()->route('login')->with('error', 'Google authentication failed. Please try again.');
-        }
-
-        return $this->loginFromIdentity($googleUser->getEmail(), $googleUser->getName());
     }
 
     public function login(Request $request)

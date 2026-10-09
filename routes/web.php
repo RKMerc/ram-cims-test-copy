@@ -27,15 +27,12 @@ Route::post('/users', [UserAccountController::class, 'store']);
 
 Route::get('/auth/microsoft', [LoginController::class, 'redirectToMicrosoft'])->name('auth.microsoft');
 Route::get('/auth/microsoft/callback', [LoginController::class, 'handleMicrosoftCallback']);
-Route::get('/auth/google', [LoginController::class, 'redirectToGoogle'])->name('auth.google');
-Route::get('/auth/google/callback', [LoginController::class, 'handleGoogleCallback']);
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
     Route::post('/portal/view', [LoginController::class, 'switchView'])->name('portal.view');
 
     Route::post('/ramsey/ask', [RamseyController::class, 'ask'])->name('ramsey.ask');
-    Route::post('/ramsey/remind', [RamseyController::class, 'remind'])->name('ramsey.remind');
     Route::post('/ramsey/view', [RamseyController::class, 'view'])->name('ramsey.view');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

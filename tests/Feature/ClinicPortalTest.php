@@ -70,7 +70,9 @@ class ClinicPortalTest extends TestCase
         $dashboard->assertSee('Profile');
         $dashboard->assertSee('+ Schedule Check-Up');
         $dashboard->assertSee('RAMsey Student Health Assistant');
-        $dashboard->assertSee('Your automated assistant for clinic appointment reminders, checking personal visit history, and navigating student health services. RAMsey cannot provide medical diagnoses or prescribe medication.');
+        $dashboard->assertSee('Your automated assistant for scheduling check-ups, checking personal visit history, and navigating student health services. RAMsey cannot provide medical diagnoses or prescribe medication.');
+        $dashboard->assertDontSee('Email me when a slot opens');
+        $dashboard->assertDontSee('Set Schedule Availability Reminders');
         $dashboard->assertSee('Schedule Check-Up');
         $dashboard->assertSee('View My Latest Visit Summary');
         $dashboard->assertSee('View My Active Prescriptions');
@@ -549,79 +551,6 @@ class ClinicPortalTest extends TestCase
         $clinical->assertJsonPath('reply', 'RAMsey is an operational assistant and cannot make clinical decisions, diagnose patients, or issue prescriptions. Please perform clinical entries manually.');
     }
 
-    public function test_student_slot_alert_emails_when_a_duty_hour_is_open(): void
-    {
-        \Illuminate\Support\Facades\Mail::fake();
-        $user = $this->signIn('Student', 'ana.alert@apc.edu.ph', 'Ana', 'Cruz', '2024100092');
-
-        $closed = $this->actingAs($user)->postJson('/ramsey/remind', [
-            'email' => 'ana.alert@apc.edu.ph',
-            'physician' => 'Dr. Marciano Fidel L. Avendaño',
-            'date' => '2026-10-05',
-        ]);
-        $closed->assertOk();
-        $closed->assertSee('Your alert is saved');
-        \Illuminate\Support\Facades\Mail::assertNothingSent();
-        $this->assertDatabaseHas('schedule_reminders', [
-            'email' => 'ana.alert@apc.edu.ph',
-            'note' => 'slot-watch|Dr. Marciano Fidel L. Avendaño|2026-10-05',
-            'notified_at' => null,
-        ]);
-
-        $open = $this->actingAs($user)->postJson('/ramsey/remind', [
-            'email' => 'ana.alert@apc.edu.ph',
-            'physician' => 'Dr. Marciano Fidel L. Avendaño',
-            'date' => '2026-10-08',
-        ]);
-        $open->assertOk();
-        $open->assertSee('I emailed ana.alert@apc.edu.ph');
-        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\SlotOpenAlert::class, function (\App\Mail\SlotOpenAlert $mail) {
-            return $mail->hasTo('ana.alert@apc.edu.ph')
-                && $mail->physician === 'Dr. Marciano Fidel L. Avendaño';
-        });
-    }
-
-    public function test_cancelling_a_full_duty_day_emails_the_waiting_slot_alert(): void
-    {
-        \Illuminate\Support\Facades\Mail::fake();
-        $student = $this->signIn('Student', 'ana.wait@apc.edu.ph', 'Ana', 'Cruz', '2024100093');
-        $staff = $this->signIn('Medical Staff', 'mina.wait@apc.edu.ph', 'Mina', 'Reyes', 'EMP-911', 'Nurse');
-        $physician = 'Dr. Marciano Fidel L. Avendaño';
-
-        foreach (['14:00:00', '15:00:00', '16:00:00'] as $start) {
-            Appointment::create([
-                'PATIENT_ID' => '2024100108',
-                'PATIENT_NAME' => 'Booked Patient '.$start,
-                'APPOINTMENT_TYPE' => 'Check-up',
-                'APPOINTMENT_REASON' => 'Filled hour',
-                'ATTENDING_PHYSICIAN' => $physician,
-                'SCHEDULED_AT' => '2026-10-08 '.$start,
-                'STATUS' => 'Scheduled',
-            ]);
-        }
-
-        $this->actingAs($student)->postJson('/ramsey/remind', [
-            'email' => 'ana.wait@apc.edu.ph',
-            'physician' => $physician,
-            'date' => '2026-10-08',
-        ])->assertOk()->assertSee('Your alert is saved');
-        \Illuminate\Support\Facades\Mail::assertNothingSent();
-
-        $appointment = Appointment::query()->where('SCHEDULED_AT', '2026-10-08 14:00:00')->firstOrFail();
-        $this->app->forgetInstance(\App\Support\ClinicAccess::class);
-        $this->actingAs($staff)->post('/duty-slots/cancel', [
-            'practitioner' => $physician,
-            'duty_date' => '2026-10-08',
-            'start' => '14:00:00',
-            'appointment_id' => $appointment->APPOINTMENT_ID,
-            'return_to' => '/appointments',
-        ])->assertRedirect('/appointments');
-
-        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\SlotOpenAlert::class, function (\App\Mail\SlotOpenAlert $mail) {
-            return $mail->hasTo('ana.wait@apc.edu.ph');
-        });
-    }
-
     public function test_only_listed_developers_can_switch_between_student_and_staff_views(): void
     {
         $developer = $this->signIn('Student', 'jaalba@student.apc.edu.ph', 'Jericho', 'Alba', '2024100094');
@@ -667,6 +596,8 @@ class ClinicPortalTest extends TestCase
         ]);
         $page->assertDontSee('Continue with Google');
         $page->assertDontSee('Google sign-in is not configured yet');
+        $this->get('/auth/google')->assertNotFound();
+        $this->get('/auth/google/callback')->assertNotFound();
         $page->assertDontSee('Full name');
         $page->assertDontSee('Preview student portal');
         $page->assertDontSee('Preview clinic staff portal');
@@ -683,31 +614,6 @@ class ClinicPortalTest extends TestCase
         $register->assertSee('Confirm password');
         $register->assertDontSee('APC email or Gmail');
         $register->assertDontSee('name@student.apc.edu.ph');
-    }
-
-    public function test_google_sign_in_opens_the_account_chooser_and_permission_screen(): void
-    {
-        config([
-            'services.google.client_id' => 'ram-cims-client',
-            'services.google.client_secret' => 'ram-cims-secret',
-            'services.google.redirect' => 'http://127.0.0.1:8000/auth/google/callback',
-        ]);
-
-        $response = $this->get('/auth/google');
-
-        $response->assertRedirect();
-        $location = (string) $response->headers->get('Location');
-        $this->assertStringStartsWith('https://accounts.google.com/o/oauth2/auth', $location);
-
-        parse_str((string) parse_url($location, PHP_URL_QUERY), $query);
-        $this->assertSame('ram-cims-client', $query['client_id']);
-        $this->assertSame('http://127.0.0.1:8000/auth/google/callback', $query['redirect_uri']);
-        $this->assertSame('code', $query['response_type']);
-        $this->assertStringContainsString('select_account', $query['prompt']);
-        $this->assertStringContainsString('consent', $query['prompt']);
-        $this->assertStringContainsString('openid', $query['scope']);
-        $this->assertStringContainsString('profile', $query['scope']);
-        $this->assertStringContainsString('email', $query['scope']);
     }
 
     public function test_students_register_with_email_and_password_without_staff_access(): void

@@ -32,18 +32,6 @@
                 <button type="button" @if(!empty($chip['ask'])) data-ask="{{ $chip['ask'] }}" @endif @if(!empty($chip['panel'])) data-panel="{{ $chip['panel'] }}" @endif>{{ $chip['label'] }}</button>
             @endforeach
         </div>
-        <form class="ramsey-tools" id="ramseyRemind" hidden>
-            <p>Email me when a slot opens</p>
-            <select name="physician" required>
-                <option value="">Physician</option>
-                @foreach($ramseyPhysicians as $physician)
-                    <option value="{{ $physician }}">{{ $physician }}</option>
-                @endforeach
-            </select>
-            <input type="date" name="date" required>
-            <input type="email" name="email" value="{{ $clinicAccount->EmailAddress ?? '' }}" placeholder="Email for the alert" required>
-            <button type="submit">Save alert</button>
-        </form>
         <form class="ramsey-tools" id="ramseyDuty" hidden>
             <p>Duty schedule quick-check</p>
             <select name="physician" required>
@@ -71,7 +59,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const log = document.getElementById('ramseyLog');
     const form = document.getElementById('ramseyForm');
     const input = document.getElementById('ramseyInput');
-    const remind = document.getElementById('ramseyRemind');
     const duty = document.getElementById('ramseyDuty');
     const chips = document.getElementById('ramseyChips');
     const title = document.getElementById('ramseyTitle');
@@ -124,7 +111,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function syncTools() {
-        remind.hidden = true;
         duty.hidden = true;
     }
 
@@ -193,11 +179,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const button = event.target.closest('button');
         if (!button) return;
         const panelName = button.getAttribute('data-panel');
-        if (panelName === 'remind') {
-            remind.hidden = false;
-            remind.querySelector('select')?.focus();
-            return;
-        }
         if (panelName === 'duty') {
             duty.hidden = false;
             duty.querySelector('select')?.focus();
@@ -211,31 +192,6 @@ document.addEventListener('DOMContentLoaded', function () {
         event.preventDefault();
         const message = input.value.trim();
         if (message) ask(message);
-    });
-
-    remind.addEventListener('submit', async function (event) {
-        event.preventDefault();
-        const physician = remind.querySelector('[name="physician"]').value;
-        const date = remind.querySelector('[name="date"]').value;
-        const email = remind.querySelector('[name="email"]').value;
-        addMessage('Alert me for ' + physician + ' on ' + date + '.', 'user');
-
-        try {
-            const response = await fetch('/ramsey/remind', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': token
-                },
-                body: JSON.stringify({ email: email, physician: physician, date: date })
-            });
-            const data = await response.json();
-            addMessage(errorText(data) || 'I could not save that reminder.', 'bot');
-            if (response.ok) remind.querySelector('[name="date"]').value = '';
-        } catch (error) {
-            addMessage('I could not save that reminder.', 'bot');
-        }
     });
 
     duty.addEventListener('submit', function (event) {

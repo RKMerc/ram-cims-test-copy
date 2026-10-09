@@ -6,8 +6,6 @@ use App\Models\Appointment;
 use App\Support\ClinicAccess;
 use App\Support\DutyBoard;
 use App\Support\PortalGrant;
-use App\Support\ScheduleAlerts;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class DutySlotController extends Controller
@@ -71,10 +69,6 @@ class DutySlotController extends Controller
         }
 
         $appointment->update(['STATUS' => 'Cancelled']);
-        ScheduleAlerts::release(
-            (string) $appointment->ATTENDING_PHYSICIAN,
-            Carbon::parse($appointment->SCHEDULED_AT)->toDateString()
-        );
 
         return $this->back($request)->with('success', 'The visit for '.$appointment->PATIENT_NAME.' was cancelled. That hour is open again.');
     }
@@ -117,7 +111,6 @@ class DutySlotController extends Controller
         if ($request->boolean('clear')) {
             abort_unless(PortalGrant::isDualView($request->user()?->email), 403);
             $this->board->clearAppointments($data['practitioner'], $data['duty_date'], $data['start']);
-            ScheduleAlerts::release($data['practitioner'], $data['duty_date']);
 
             return $this->back($request)->with('success', 'Appointment cleared from this slot.');
         }

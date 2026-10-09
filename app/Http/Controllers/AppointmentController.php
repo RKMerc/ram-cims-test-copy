@@ -4,10 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Models\DoctorSchedule;
-use App\Models\ScheduleReminder;
 use App\Support\ClinicAccess;
 use App\Support\ClinicRoster;
-use App\Support\ScheduleAlerts;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
@@ -88,18 +86,9 @@ class AppointmentController extends Controller
             'NOTES'          => 'nullable|string'
         ]);
 
-        $waiting = ScheduleReminder::whereNull('notified_at')->count();
         DoctorSchedule::create($validated);
-        $sent = ScheduleAlerts::release($validated['DOCTOR_NAME'], $validated['AVAILABLE_DATE'], true);
 
-        $message = 'Doctor availability schedule added!';
-        if ($sent > 0) {
-            $message .= ' '.$sent.' email alert'.($sent === 1 ? ' was' : 's were').' sent.';
-        } elseif ($waiting > 0) {
-            $message .= ' '.$waiting.' email reminder'.($waiting === 1 ? '' : 's').' are waiting for an opening.';
-        }
-
-        return redirect('/appointments')->with('success', $message);
+        return redirect('/appointments')->with('success', 'Doctor availability schedule added!');
     }
 
     public function store(Request $request)
