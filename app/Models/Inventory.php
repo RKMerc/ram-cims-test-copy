@@ -8,6 +8,13 @@ class Inventory extends Model
 {
     public const LOW_STOCK_AT = 10;
 
+    public const FORMS = [
+        'Medicine' => ['Capsule', 'Syrup', 'Drops', 'Cream', 'Injection'],
+        'Equipment' => ['Device', 'Instrument', 'Machine'],
+        'Medical Supply' => ['Box', 'Pack', 'Roll', 'Bottle', 'Pair', 'Piece'],
+        'First Aid Kit' => ['Kit', 'Box', 'Pouch'],
+    ];
+
     protected $table = 'inventory';
     protected $primaryKey = 'ITEM_CODE';
     
@@ -33,6 +40,18 @@ class Inventory extends Model
     public function scopeLowStock($query)
     {
         return $query->where('ITEM_QUANTITY', '<=', self::LOW_STOCK_AT);
+    }
+
+    public static function lowStockItems()
+    {
+        return static::query()->lowStock()->orderBy('ITEM_QUANTITY')->orderBy('GENERIC_NAME')->get();
+    }
+
+    public function dosageLabel(): string
+    {
+        $label = trim(($this->ITEM_DOSAGE ?: '').' '.($this->ITEM_UNIT ?: '').' '.($this->ITEM_FORM ?: ''));
+
+        return $label !== '' ? $label : 'N/A';
     }
 
     public static function nextItemCode(): int

@@ -14,51 +14,26 @@
             </button>
         </div>
         
-        @if($lowStockReport ?? null)
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-white py-3">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div>
                     <div class="fw-bold" style="color:#003B7A;">Low stock report</div>
                     <div class="text-muted small">
-                        {{ $lowStockReport->created_at?->timezone(config('app.timezone'))->format('M d, Y h:i A') }}
-                        @if($lowStockReport->notified_by)
-                            · {{ $lowStockReport->notified_by }}
+                        @if($lowStockReport ?? null)
+                            Last notified {{ $lowStockReport->created_at?->timezone(config('app.timezone'))->format('M d, Y h:i A') }}
+                            @if($lowStockReport->notified_by)
+                                · {{ $lowStockReport->notified_by }}
+                            @endif
                         @endif
                     </div>
                 </div>
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0 align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-3">Code</th>
-                                <th>Generic Name</th>
-                                <th>Brand</th>
-                                <th>Dosage</th>
-                                <th>Category</th>
-                                <th>Expiration</th>
-                                <th class="text-end pe-3">Quantity</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($lowStockReport->items ?? [] as $item)
-                                <tr>
-                                    <td class="ps-3 fw-semibold">{{ $item['code'] ?? '—' }}</td>
-                                    <td>{{ $item['generic_name'] ?? '—' }}</td>
-                                    <td>{{ $item['brand_name'] ?: 'N/A' }}</td>
-                                    <td>{{ $item['dosage'] ?: 'N/A' }}</td>
-                                    <td>{{ $item['category'] ?? '—' }}</td>
-                                    <td>{{ $item['expiration_date'] ?: 'N/A' }}</td>
-                                    <td class="text-end pe-3 fw-bold text-danger">{{ $item['quantity'] ?? 0 }} pcs</td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="7" class="text-center py-4 text-muted">No items were below the low-stock level.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
+                <form method="POST" action="{{ route('inventory.notify-logistics') }}">
+                    @csrf
+                    <button type="submit" class="btn btn-sm btn-outline-primary fw-semibold">Notify Logistics</button>
+                </form>
             </div>
-        @endif
+            @include('partials.low-stock-table', ['items' => $lowStockItems ?? collect()])
+        </div>
 
         <div class="card shadow-sm">
             <div class="card-body p-0">
@@ -88,8 +63,8 @@
                                 <td class="fw-bold {{ $item->ITEM_QUANTITY < 10 ? 'text-danger' : 'text-success' }}">
                                     {{ $item->ITEM_QUANTITY }} pcs
                                 </td>
-                                <td>{{ \Carbon\Carbon::parse($item->ITEM_EXPIRATION_DATE)->format('Y-M-d') }}</td>
-                                <td class="text-center">
+                                <td>{{ $item->ITEM_EXPIRATION_DATE ? \Carbon\Carbon::parse($item->ITEM_EXPIRATION_DATE)->format('Y-M-d') : 'N/A' }}</td>
+                                <td class="text-center text-nowrap">
                                     <button type="button" 
                                         class="btn btn-sm btn-outline-primary fw-semibold edit-btn"
                                         data-bs-toggle="modal" 
@@ -105,6 +80,11 @@
                                         data-expiration="{{ $item->ITEM_EXPIRATION_DATE }}">
                                     Edit
                                     </button>
+                                    <form action="/inventory/{{ $item->ITEM_CODE }}" method="POST" class="d-inline ms-1" onsubmit="return confirm(@js('Are you sure you want to delete '.$item->GENERIC_NAME.'?'))">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-sm btn-outline-danger fw-semibold">Delete</button>
+                                    </form>
                                 </td>
                             </tr>
                         @empty
@@ -126,7 +106,7 @@
                     <h5 class="modal-title fw-bold" id="addItemModalLabel">Register New Supply Item</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form action="/inventory" method="POST">
+                <form action="/inventory" method="POST" id="addItemForm" data-item-form>
                     @csrf
                     <div class="modal-body row g-3">
                         <div class="col-md-6">
@@ -138,21 +118,20 @@
                             <label for="ITEM_CATEGORY" class="form-label fw-semibold">Category</label>
                             <select class="form-select" id="ITEM_CATEGORY" name="ITEM_CATEGORY" required>
                                 <option value="" disabled selected>Select category...</option>
-                                <option value="Medicine">Medicine</option>
-                                <option value="Medical Supply">Medical Supply</option>
-                                <option value="Equipment">Equipment</option>
-                                <option value="First Aid">First Aid</option>
+                                @foreach(array_keys(\App\Models\Inventory::FORMS) as $category)
+                                    <option value="{{ $category }}">{{ $category }}</option>
+                                @endforeach
                             </select>
                         </div>
-                        <div class="col-12">
+                        <div class="col-12" data-item-group="name" hidden>
                             <label for="GENERIC_NAME" class="form-label fw-semibold">Generic Name</label>
                             <input type="text" class="form-control" id="GENERIC_NAME" name="GENERIC_NAME" placeholder="e.g., Paracetamol" required>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6" data-item-group="brand" hidden>
                             <label for="BRAND_NAME" class="form-label fw-semibold">Brand Name (Optional)</label>
                             <input type="text" class="form-control" id="BRAND_NAME" name="BRAND_NAME" placeholder="e.g., Biogesic">
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6" data-item-group="dosage" hidden>
                             <label for="ITEM_DOSAGE" class="form-label fw-semibold">Dosage</label>
                             <input type="text" class="form-control" id="ITEM_DOSAGE" name="ITEM_DOSAGE" placeholder="500" inputmode="decimal">
                             <div class="form-text">Amount only. Choose the unit below.</div>
@@ -161,19 +140,19 @@
                                 @include('partials.dosage-unit-options')
                             </select>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6" data-item-group="form" hidden>
                             <label for="ITEM_FORM" class="form-label fw-semibold">Form</label>
                             <select class="form-select" id="ITEM_FORM" name="ITEM_FORM">
                                 @include('partials.dosage-form-options')
                             </select>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6" data-item-group="quantity" hidden>
                             <label for="ITEM_QUANTITY" class="form-label fw-semibold">Initial Quantity</label>
                             <input type="number" class="form-control" id="ITEM_QUANTITY" name="ITEM_QUANTITY" min="0" placeholder="0" required>
                         </div>
-                        <div class="col-md-6">
-                            <label for="ITEM_EXPIRATION_DATE" class="form-label fw-semibold">Expiration Date</label>
-                            <input type="date" class="form-control" id="ITEM_EXPIRATION_DATE" name="ITEM_EXPIRATION_DATE" required>
+                        <div class="col-md-6" data-item-group="expiration" hidden>
+                            <label for="ITEM_EXPIRATION_DATE" class="form-label fw-semibold" data-expiration-label>Expiration Date</label>
+                            <input type="date" class="form-control" id="ITEM_EXPIRATION_DATE" name="ITEM_EXPIRATION_DATE">
                         </div>
                     </div>
                     <div class="modal-footer bg-light">
@@ -193,7 +172,7 @@
                     <h5 class="modal-title fw-bold" id="editItemModalLabel">Edit Supply Item</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form id="editItemForm">
+                <form id="editItemForm" data-item-form>
                     <div class="modal-body row g-3">
                         <div class="col-md-6">
                             <label for="edit_ITEM_CODE" class="form-label fw-semibold">Item Code</label>
@@ -203,21 +182,20 @@
                         <div class="col-md-6">
                             <label for="edit_ITEM_CATEGORY" class="form-label fw-semibold">Category</label>
                             <select class="form-select" id="edit_ITEM_CATEGORY" name="ITEM_CATEGORY" required>
-                                <option value="Medicine">Medicine</option>
-                                <option value="Medical Supply">Medical Supply</option>
-                                <option value="Equipment">Equipment</option>
-                                <option value="First Aid">First Aid</option>
+                                @foreach(array_keys(\App\Models\Inventory::FORMS) as $category)
+                                    <option value="{{ $category }}">{{ $category }}</option>
+                                @endforeach
                             </select>
                         </div>
-                        <div class="col-12">
+                        <div class="col-12" data-item-group="name">
                             <label for="edit_GENERIC_NAME" class="form-label fw-semibold">Generic Name</label>
                             <input type="text" class="form-control" id="edit_GENERIC_NAME" name="GENERIC_NAME" required>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6" data-item-group="brand">
                             <label for="edit_BRAND_NAME" class="form-label fw-semibold">Brand Name (Optional)</label>
                             <input type="text" class="form-control" id="edit_BRAND_NAME" name="BRAND_NAME">
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6" data-item-group="dosage">
                             <label for="edit_ITEM_DOSAGE" class="form-label fw-semibold">Dosage</label>
                             <input type="text" class="form-control" id="edit_ITEM_DOSAGE" name="ITEM_DOSAGE" placeholder="500" inputmode="decimal">
                             <div class="form-text">Amount only. Choose the unit below.</div>
@@ -226,19 +204,19 @@
                                 @include('partials.dosage-unit-options')
                             </select>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6" data-item-group="form">
                             <label for="edit_ITEM_FORM" class="form-label fw-semibold">Form</label>
                             <select class="form-select" id="edit_ITEM_FORM" name="ITEM_FORM">
                                 @include('partials.dosage-form-options')
                             </select>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6" data-item-group="quantity">
                             <label for="edit_ITEM_QUANTITY" class="form-label fw-semibold">Quantity</label>
                             <input type="number" class="form-control" id="edit_ITEM_QUANTITY" name="ITEM_QUANTITY" min="0" required>
                         </div>
-                        <div class="col-md-6">
-                            <label for="edit_ITEM_EXPIRATION_DATE" class="form-label fw-semibold">Expiration Date</label>
-                           <input type="date" class="form-control" id="edit_ITEM_EXPIRATION_DATE" name="ITEM_EXPIRATION_DATE" required>
+                        <div class="col-md-6" data-item-group="expiration">
+                            <label for="edit_ITEM_EXPIRATION_DATE" class="form-label fw-semibold" data-expiration-label>Expiration Date</label>
+                            <input type="date" class="form-control" id="edit_ITEM_EXPIRATION_DATE" name="ITEM_EXPIRATION_DATE">
                         </div>
                     </div>
                     <div class="modal-footer bg-light">
@@ -254,7 +232,70 @@
     <!-- Scripts -->
 @push('scripts')
     <script>
+        const itemForms = @json(\App\Models\Inventory::FORMS);
+        const itemLayouts = {
+            'Medicine': { show: ['name', 'brand', 'dosage', 'form', 'quantity', 'expiration'], expirationRequired: true },
+            'Equipment': { show: ['name', 'brand', 'form', 'quantity'], expirationRequired: false },
+            'Medical Supply': { show: ['name', 'brand', 'form', 'quantity', 'expiration'], expirationRequired: false },
+            'First Aid Kit': { show: ['name', 'brand', 'form', 'quantity'], expirationRequired: false }
+        };
+
+        function setFormOptions(select, options, current) {
+            const next = options.indexOf(current) === -1 ? '' : current;
+            select.replaceChildren();
+            const blank = document.createElement('option');
+            blank.value = '';
+            blank.textContent = 'Select form';
+            select.appendChild(blank);
+            options.forEach(function (value) {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                select.appendChild(option);
+            });
+            select.value = next;
+        }
+
+        function applyItemLayout(form) {
+            const category = form.querySelector('[name="ITEM_CATEGORY"]')?.value || '';
+            const layout = itemLayouts[category];
+            const visible = layout ? layout.show : [];
+
+            form.querySelectorAll('[data-item-group]').forEach(function (group) {
+                const shown = visible.indexOf(group.getAttribute('data-item-group')) !== -1;
+                group.hidden = !shown;
+                group.querySelectorAll('input, select, textarea').forEach(function (input) {
+                    input.disabled = !shown;
+                });
+            });
+
+            const dosage = form.querySelector('[name="ITEM_DOSAGE"]');
+            const unit = form.querySelector('[name="ITEM_UNIT"]');
+            const itemForm = form.querySelector('[name="ITEM_FORM"]');
+            if (itemForm && itemForms[category]) {
+                setFormOptions(itemForm, itemForms[category], itemForm.value);
+            }
+            const expiration = form.querySelector('[name="ITEM_EXPIRATION_DATE"]');
+            const expirationLabel = form.querySelector('[data-expiration-label]');
+            if (dosage) dosage.required = visible.indexOf('dosage') !== -1;
+            if (unit) unit.required = visible.indexOf('dosage') !== -1;
+            if (itemForm) itemForm.required = visible.indexOf('form') !== -1;
+            if (expiration) expiration.required = !!(layout && layout.expirationRequired);
+            if (expirationLabel) {
+                expirationLabel.textContent = category === 'Medical Supply'
+                    ? 'Expiration Date (If Applicable)'
+                    : 'Expiration Date';
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('[data-item-form]').forEach(function (form) {
+                applyItemLayout(form);
+                form.querySelector('[name="ITEM_CATEGORY"]')?.addEventListener('change', function () {
+                    applyItemLayout(form);
+                });
+            });
+
             const editModal = document.getElementById('editItemModal');
 
             if (editModal) {
@@ -290,7 +331,7 @@
                         formSelect.add(new Option(form, form));
                     }
                     formSelect.value = form;
-                    document.getElementById('edit_ITEM_CATEGORY').value = category;
+                    document.getElementById('edit_ITEM_CATEGORY').value = category === 'First Aid' ? 'First Aid Kit' : category;
                     document.getElementById('edit_ITEM_QUANTITY').value = quantity;
 
                     // Format date for <input type="date"> (YYYY-MM-DD)
@@ -300,6 +341,8 @@
                     } else {
                         document.getElementById('edit_ITEM_EXPIRATION_DATE').value = '';
                     }
+
+                    applyItemLayout(document.getElementById('editItemForm'));
                 });
             }
 

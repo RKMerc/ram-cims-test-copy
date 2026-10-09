@@ -51,12 +51,11 @@ Route::middleware('auth')->group(function () {
     Route::middleware('staff')->group(function () {
         Route::post('/dashboard/next-patient', [DashboardController::class, 'nextPatient'])->name('dashboard.next-patient');
         Route::post('/dashboard/treatment-mode', [DashboardController::class, 'toggleTreatmentMode'])->name('dashboard.treatment-mode');
-        Route::post('/dashboard/notify-logistics', [DashboardController::class, 'notifyLogistics'])->name('dashboard.notify-logistics');
-
         Route::post('/doctor-schedules', [AppointmentController::class, 'storeSchedule']);
+        Route::post('/inventory/notify-logistics', [InventoryController::class, 'notifyLogistics'])->name('inventory.notify-logistics');
 
         Route::resource('inventory', InventoryController::class)->only([
-            'index', 'store', 'update',
+            'index', 'store', 'update', 'destroy',
         ]);
 
         Route::get('/medical-records', [MedicalRecordController::class, 'index'])->name('medical-records');

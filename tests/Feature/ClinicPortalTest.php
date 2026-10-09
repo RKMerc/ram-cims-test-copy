@@ -174,7 +174,7 @@ class ClinicPortalTest extends TestCase
         $dashboard->assertSee('Paracetamol');
         $dashboard->assertSee('Next Patient');
         $dashboard->assertSee('Toggle Treatment-First Mode');
-        $dashboard->assertSee('Notify Logistics');
+        $dashboard->assertDontSee('Notify Logistics');
         $dashboard->assertSee('Inventory');
         $dashboard->assertSee('Medical Records');
         $dashboard->assertSee('Analytics');
@@ -186,9 +186,16 @@ class ClinicPortalTest extends TestCase
         $dashboard->assertDontSee('Visit History');
         $dashboard->assertDontSee('Welcome, Mina');
 
-        $this->actingAs($user)->get('/inventory')->assertOk()->assertDontSee('e.g., 500mg')->assertSee('Amount only');
-        $this->actingAs($user)->post(route('dashboard.notify-logistics'))->assertRedirect('/inventory');
-        $this->actingAs($user)->post(route('dashboard.notify-logistics'))->assertRedirect('/inventory');
+        $this->actingAs($user)->get('/inventory')
+            ->assertOk()
+            ->assertDontSee('e.g., 500mg')
+            ->assertSee('Amount only')
+            ->assertSee('First Aid Kit')
+            ->assertDontSee('value="First Aid"')
+            ->assertSee('Notify Logistics')
+            ->assertSee('Paracetamol');
+        $this->actingAs($user)->post(route('inventory.notify-logistics'))->assertRedirect('/inventory');
+        $this->actingAs($user)->post(route('inventory.notify-logistics'))->assertRedirect('/inventory');
         $this->assertSame(1, \App\Models\LowStockReport::query()->count());
         $this->actingAs($user)->get('/inventory')->assertSee('Low stock report')->assertSee('Paracetamol');
         $this->actingAs($user)->get('/medical-records')->assertOk()->assertSee('Patient name')->assertSee('Ana Cruz');
@@ -221,8 +228,37 @@ class ClinicPortalTest extends TestCase
         $dashboard = $this->actingAs($user)->get('/dashboard');
         $dashboard->assertSee('APC Clinic Operations Dashboard');
         $dashboard->assertSee('All inventory stock levels are normal.');
-        $this->actingAs($user)->get('/inventory')->assertOk();
+        $this->actingAs($user)->get('/inventory')->assertOk()->assertSee('Notify Logistics');
         $this->actingAs($user)->get('/users')->assertOk()->assertSee('Edit User Account');
+    }
+
+    public function test_a_long_low_stock_list_opens_from_a_menu_and_matches_inventory(): void
+    {
+        $user = $this->signIn('Medical Staff', 'mina.stock@apc.edu.ph', 'Mina', 'Reyes', 'EMP-304', 'Nurse');
+        $names = ['Paracetamol', 'Loratadine', 'Stethoscope', 'Ascorbic Acid'];
+
+        foreach ($names as $index => $name) {
+            Inventory::create([
+                'ITEM_CODE' => 5101 + $index,
+                'GENERIC_NAME' => $name,
+                'ITEM_CATEGORY' => 'Medicine',
+                'ITEM_FORM' => 'Capsule',
+                'ITEM_QUANTITY' => 3 + $index,
+                'ITEM_EXPIRATION_DATE' => now()->addYear()->toDateString(),
+            ]);
+        }
+
+        $dashboard = $this->actingAs($user)->get('/dashboard');
+        $dashboard->assertOk()->assertSee('View items')->assertDontSee('Notify Logistics');
+        foreach ($names as $name) {
+            $dashboard->assertSee($name);
+        }
+
+        $inventory = $this->actingAs($user)->get('/inventory');
+        $inventory->assertOk()->assertSee('Low stock report')->assertSee('Notify Logistics');
+        foreach ($names as $name) {
+            $inventory->assertSee($name);
+        }
     }
 
     public function test_only_itro_admins_and_developers_can_edit_profiles(): void
@@ -266,6 +302,8 @@ class ClinicPortalTest extends TestCase
             'GENERIC_NAME' => 'Ibuprofen',
             'BRAND_NAME' => 'Advil',
             'ITEM_DOSAGE' => '200mg',
+            'ITEM_UNIT' => 'Milligram (mg)',
+            'ITEM_FORM' => 'Capsule',
             'ITEM_CATEGORY' => 'Medicine',
             'ITEM_QUANTITY' => 20,
             'ITEM_EXPIRATION_DATE' => now()->addYear()->toDateString(),
@@ -282,6 +320,8 @@ class ClinicPortalTest extends TestCase
             'GENERIC_NAME' => 'Ibuprofen',
             'BRAND_NAME' => 'Advil',
             'ITEM_DOSAGE' => '400mg',
+            'ITEM_UNIT' => 'Milligram (mg)',
+            'ITEM_FORM' => 'Capsule',
             'ITEM_CATEGORY' => 'Medicine',
             'ITEM_QUANTITY' => 40,
             'ITEM_EXPIRATION_DATE' => now()->addYear()->toDateString(),
@@ -331,6 +371,118 @@ class ClinicPortalTest extends TestCase
         $page->assertSee('Select Doctor / Attending Physician');
         $page->assertSee('Dr. Marciano Fidel L. Avendaño - Doctor');
         $page->assertSee('value="'.Appointment::nextPatientId().'"', false);
+    }
+
+    public function test_new_inventory_items_keep_only_the_fields_for_their_category(): void
+    {
+        $user = $this->signIn('Medical Staff', 'mina.items@apc.edu.ph', 'Mina', 'Reyes', 'EMP-302', 'Nurse');
+
+        $this->actingAs($user)->post('/inventory', [
+            'GENERIC_NAME' => 'Ibuprofen',
+            'ITEM_CATEGORY' => 'Medicine',
+            'ITEM_FORM' => 'Capsule',
+            'ITEM_QUANTITY' => 5,
+        ])->assertSessionHasErrors(['ITEM_DOSAGE', 'ITEM_UNIT', 'ITEM_EXPIRATION_DATE']);
+
+        $this->actingAs($user)->post('/inventory', [
+            'GENERIC_NAME' => 'Blood pressure monitor',
+            'BRAND_NAME' => 'Omron',
+            'ITEM_CATEGORY' => 'Equipment',
+            'ITEM_FORM' => 'Injection',
+            'ITEM_DOSAGE' => '500',
+            'ITEM_UNIT' => 'Milligram (mg)',
+            'ITEM_QUANTITY' => 2,
+            'ITEM_EXPIRATION_DATE' => now()->addYear()->toDateString(),
+        ])->assertSessionHasErrors('ITEM_FORM');
+
+        $this->actingAs($user)->post('/inventory', [
+            'GENERIC_NAME' => 'Blood pressure monitor',
+            'BRAND_NAME' => 'Omron',
+            'ITEM_CATEGORY' => 'Equipment',
+            'ITEM_FORM' => 'Device',
+            'ITEM_DOSAGE' => '500',
+            'ITEM_UNIT' => 'Milligram (mg)',
+            'ITEM_QUANTITY' => 2,
+            'ITEM_EXPIRATION_DATE' => now()->addYear()->toDateString(),
+        ])->assertRedirect('/inventory');
+
+        $this->assertDatabaseHas('inventory', [
+            'GENERIC_NAME' => 'Blood pressure monitor',
+            'ITEM_CATEGORY' => 'Equipment',
+            'ITEM_FORM' => 'Device',
+            'ITEM_DOSAGE' => null,
+            'ITEM_UNIT' => null,
+            'ITEM_EXPIRATION_DATE' => null,
+        ]);
+
+        $this->actingAs($user)->post('/inventory', [
+            'GENERIC_NAME' => 'Gauze',
+            'ITEM_CATEGORY' => 'Medical Supply',
+            'ITEM_FORM' => 'Cream',
+            'ITEM_QUANTITY' => 12,
+        ])->assertSessionHasErrors('ITEM_FORM');
+
+        $supplyDate = now()->addYear()->toDateString();
+        $this->actingAs($user)->post('/inventory', [
+            'GENERIC_NAME' => 'Gauze',
+            'ITEM_CATEGORY' => 'Medical Supply',
+            'ITEM_FORM' => 'Box',
+            'ITEM_QUANTITY' => 12,
+            'ITEM_EXPIRATION_DATE' => $supplyDate,
+        ])->assertRedirect('/inventory');
+
+        $this->assertDatabaseHas('inventory', [
+            'GENERIC_NAME' => 'Gauze',
+            'ITEM_CATEGORY' => 'Medical Supply',
+            'ITEM_FORM' => 'Box',
+            'ITEM_EXPIRATION_DATE' => $supplyDate,
+        ]);
+
+        $this->actingAs($user)->post('/inventory', [
+            'GENERIC_NAME' => 'Clinic kit',
+            'ITEM_CATEGORY' => 'First Aid Kit',
+            'ITEM_FORM' => 'Kit',
+            'ITEM_QUANTITY' => 3,
+        ])->assertRedirect('/inventory');
+
+        $this->assertDatabaseHas('inventory', [
+            'GENERIC_NAME' => 'Clinic kit',
+            'ITEM_CATEGORY' => 'First Aid Kit',
+            'ITEM_DOSAGE' => null,
+            'ITEM_EXPIRATION_DATE' => null,
+        ]);
+    }
+
+    public function test_staff_can_delete_an_inventory_item(): void
+    {
+        $staff = $this->signIn('Medical Staff', 'mina.delete@apc.edu.ph', 'Mina', 'Reyes', 'EMP-303', 'Nurse');
+        $item = Inventory::create([
+            'ITEM_CODE' => 4401,
+            'GENERIC_NAME' => 'Spare gauze',
+            'ITEM_CATEGORY' => 'Medical Supply',
+            'ITEM_FORM' => 'Box',
+            'ITEM_QUANTITY' => 2,
+        ]);
+
+        $page = $this->actingAs($staff)->get('/inventory');
+        $page->assertOk();
+        $page->assertSee('Delete');
+        $page->assertSee('Spare gauze');
+
+        $this->actingAs($staff)->delete('/inventory/'.$item->ITEM_CODE)->assertRedirect('/inventory');
+        $this->assertDatabaseMissing('inventory', ['ITEM_CODE' => 4401]);
+
+        $this->app->forgetInstance(\App\Support\ClinicAccess::class);
+        $student = $this->signIn('Student', 'ana.delete@apc.edu.ph', 'Ana', 'Cruz', '2024100441');
+        Inventory::create([
+            'ITEM_CODE' => 4402,
+            'GENERIC_NAME' => 'Kept gauze',
+            'ITEM_CATEGORY' => 'Medical Supply',
+            'ITEM_FORM' => 'Box',
+            'ITEM_QUANTITY' => 2,
+        ]);
+        $this->actingAs($student)->delete('/inventory/4402')->assertRedirect(route('dashboard'));
+        $this->assertDatabaseHas('inventory', ['ITEM_CODE' => 4402]);
     }
 
     public function test_weekly_duty_grid_follows_appointments_and_duty_days(): void
