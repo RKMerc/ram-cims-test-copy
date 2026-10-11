@@ -99,10 +99,10 @@ class RamseyDialogue
                 : 'Which section do you mean? I can point you to Appointments or your own visit history.');
         }
 
-        if ($this->isGreeting($message)) {
+        if ($greeting = $this->greetingReply($message)) {
             $this->remember(null, 'greeting');
 
-            return $this->pack('Hello! How can I help you today?');
+            return $this->pack($greeting);
         }
 
         if ($this->isAmbiguousAppointment($message)) {
@@ -245,9 +245,41 @@ class RamseyDialogue
         ]);
     }
 
-    private function isGreeting(string $message): bool
+    private function greetingReply(string $message): ?string
     {
-        return (bool) preg_match('/^(hi|hello|hey|good morning|good afternoon|good evening|kumusta|kamusta|magandang umaga|magandang hapon|magandang gabi)$/', $message);
+        if (preg_match('/^(hi|hello|hey)$/', $message)) {
+            return 'Hello! How can I help you today?';
+        }
+
+        if ($message === 'good morning') {
+            return 'Good morning! How can I help you today?';
+        }
+
+        if ($message === 'good afternoon') {
+            return 'Good afternoon! How can I help you today?';
+        }
+
+        if ($message === 'good evening') {
+            return 'Good evening! How can I help you today?';
+        }
+
+        if (preg_match('/^(kumusta|kamusta)( ka| po| naman| ka po)?$/', $message)) {
+            return 'Mabuti naman! Ikaw, kumusta? Paano kita matutulungan ngayon?';
+        }
+
+        if ($message === 'magandang umaga') {
+            return 'Magandang umaga! Paano kita matutulungan ngayon?';
+        }
+
+        if ($message === 'magandang hapon') {
+            return 'Magandang hapon! Paano kita matutulungan ngayon?';
+        }
+
+        if ($message === 'magandang gabi') {
+            return 'Magandang gabi! Paano kita matutulungan ngayon?';
+        }
+
+        return null;
     }
 
     private function isHelp(string $message): bool

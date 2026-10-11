@@ -32,6 +32,10 @@ class ClinicImprovementTest extends TestCase
         $cases = [
             'Hi' => 'Hello! How can I help you today?',
             'Hello' => 'Hello! How can I help you today?',
+            'kumusta?' => 'Mabuti naman! Ikaw, kumusta? Paano kita matutulungan ngayon?',
+            'kamusta?' => 'Mabuti naman! Ikaw, kumusta? Paano kita matutulungan ngayon?',
+            'kumusta ka?' => 'Mabuti naman! Ikaw, kumusta? Paano kita matutulungan ngayon?',
+            'Magandang umaga' => 'Magandang umaga! Paano kita matutulungan ngayon?',
             'Pwede pa help?' => 'Sure! Ano po ang kailangan ninyong tulong?',
             'Can you help me?' => 'Sure! What do you need help with?',
             'Paano magpa-appointment?' => 'Maaari kang mag-schedule ng appointment sa Appointments section ng RAM-CIMS.',
