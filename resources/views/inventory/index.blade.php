@@ -80,6 +80,12 @@
                                         data-expiration="{{ $item->ITEM_EXPIRATION_DATE }}">
                                     Edit
                                     </button>
+                                    <form action="{{ route('inventory.dispense', $item->ITEM_CODE) }}" method="POST" class="d-inline-flex align-items-center gap-1 ms-1">
+                                        @csrf
+                                        <label class="visually-hidden" for="dispense-{{ $item->ITEM_CODE }}">Quantity to dispense</label>
+                                        <input id="dispense-{{ $item->ITEM_CODE }}" type="number" name="quantity" min="1" value="1" class="form-control form-control-sm" style="width:4.5rem" required>
+                                        <button type="submit" class="btn btn-sm btn-outline-primary fw-semibold">Dispense</button>
+                                    </form>
                                     <form action="/inventory/{{ $item->ITEM_CODE }}" method="POST" class="d-inline ms-1" onsubmit="return confirm(@js('Are you sure you want to delete '.$item->GENERIC_NAME.'?'))">
                                         @csrf
                                         @method('DELETE')

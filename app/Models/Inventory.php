@@ -34,12 +34,26 @@ class Inventory extends Model
         'ITEM_FORM',
         'ITEM_CATEGORY',
         'ITEM_QUANTITY',
+        'minimum_stock',
         'ITEM_EXPIRATION_DATE'
     ];
 
     public function scopeLowStock($query)
     {
-        return $query->where('ITEM_QUANTITY', '<=', self::LOW_STOCK_AT);
+        return $query->where(function ($query) {
+            $query->where(function ($query) {
+                $query->whereNotNull('minimum_stock')
+                    ->whereColumn('ITEM_QUANTITY', '<=', 'minimum_stock');
+            })->orWhere(function ($query) {
+                $query->whereNull('minimum_stock')
+                    ->where('ITEM_QUANTITY', '<=', self::LOW_STOCK_AT);
+            });
+        });
+    }
+
+    public function stockThreshold(): int
+    {
+        return $this->minimum_stock ?? self::LOW_STOCK_AT;
     }
 
     public static function lowStockItems()

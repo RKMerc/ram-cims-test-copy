@@ -9,6 +9,7 @@ use App\Support\ClinicAccess;
 use App\Support\ClinicRoster;
 use App\Support\DutyBoard;
 use App\Support\PortalGrant;
+use App\Support\RamseyDialogue;
 use App\Support\RamseyPersona;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -30,6 +31,10 @@ class RamseyController extends Controller
         ]);
 
         $message = strtolower(trim($validated['message']));
+        $dialogue = app(RamseyDialogue::class)->answer($validated['message']);
+        if ($dialogue) {
+            return $this->reply($dialogue['reply'], $dialogue['links']);
+        }
 
         if ($this->persona->staff()) {
             if ($this->clinicalRequest($message)) {

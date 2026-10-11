@@ -3,12 +3,16 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ConfirmEmailMail;
+use App\Models\AuditLog;
 use App\Models\User;
 use App\Support\ClinicAccess;
+use App\Support\MicrosoftSignIn;
 use App\Support\PortalGrant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\Rules\Password;
 use Laravel\Socialite\Facades\Socialite;
 
@@ -43,7 +47,50 @@ class LoginController extends Controller
             return redirect()->route('login')->with('error', 'Microsoft authentication failed. Please try again.');
         }
 
-        return $this->loginFromIdentity($microsoftUser->getEmail(), $microsoftUser->getName());
+        return app(MicrosoftSignIn::class)->fromCallback($microsoftUser);
+    }
+
+    public function showLink()
+    {
+        abort_unless(session()->has('microsoft.pending_link'), 404);
+
+        return view('auth.link-microsoft');
+    }
+
+    public function confirmLink(Request $request, MicrosoftSignIn $signIn)
+    {
+        $validated = $request->validate([
+            'password' => ['required', 'string'],
+        ]);
+
+        return $signIn->confirmPending($validated['password']);
+    }
+
+    public function verifyEmail(Request $request, int $id, string $hash)
+    {
+        $user = User::query()->findOrFail($id);
+        abort_unless(hash_equals($hash, sha1($user->email)), 403);
+
+        if (! $user->hasVerifiedEmail()) {
+            $user->forceFill(['email_verified_at' => now()])->save();
+            AuditLog::record('email.verified', $user, [], $user->id);
+        }
+
+        return redirect()->route('login')->with('status', 'Email confirmed. You can sign in.');
+    }
+
+    public function resendVerification(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user, 403);
+
+        if ($user->hasVerifiedEmail()) {
+            return back()->with('success', 'This email is already confirmed.');
+        }
+
+        $this->sendVerificationNotice($user);
+
+        return back()->with('success', 'A confirmation link was sent to your email.');
     }
 
     public function login(Request $request)
@@ -80,7 +127,7 @@ class LoginController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255'],
-            'password' => ['required', 'confirmed', Password::min(8)],
+            'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
         ]);
 
         $email = PortalGrant::normalize($validated['email']);
@@ -106,6 +153,7 @@ class LoginController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
         $this->startClinicSession($email, $validated['name']);
+        $this->sendVerificationNotice($user);
 
         return redirect()->intended('/dashboard');
     }
@@ -130,31 +178,18 @@ class LoginController extends Controller
         return back(fallback: route('dashboard'));
     }
 
-    private function loginFromIdentity(?string $email, ?string $name)
+    private function sendVerificationNotice(User $user): void
     {
-        $email = PortalGrant::normalize($email);
-
-        if ($email === '' || ! PortalGrant::allowsEmail($email)) {
-            return redirect()->route('login')->with('error', 'Use an APC email or a Gmail address to sign in.');
-        }
-
-        $user = User::query()->whereRaw('lower(email) = ?', [$email])->first();
-
-        if (! $user) {
-            $user = User::create([
-                'name' => $name ?: 'APC User',
-                'email' => $email,
-                'password' => Str::password(32),
+        try {
+            $url = URL::temporarySignedRoute('verification.verify', now()->addHour(), [
+                'id' => $user->id,
+                'hash' => sha1($user->email),
             ]);
-        } elseif ($name) {
-            $user->forceFill(['name' => $name])->save();
+
+            Mail::to($user->email)->send(new ConfirmEmailMail($url));
+        } catch (\Throwable $exception) {
+            report($exception);
         }
-
-        Auth::login($user);
-        request()->session()->regenerate();
-        $this->startClinicSession($email, $name ?: $user->name);
-
-        return redirect()->intended('/dashboard');
     }
 
     private function startClinicSession(string $email, ?string $name): void

@@ -34,6 +34,13 @@
                     <a class="{{ request()->is('inventory') || request()->is('inventory/*') ? 'active' : '' }}" href="{{ url('/inventory') }}">Inventory</a>
                     <a class="{{ request()->is('medical-records') || request()->is('records') || request()->is('records/*') ? 'active' : '' }}" href="{{ url('/medical-records') }}">Medical Records</a>
                     <a class="{{ request()->is('analytics') || request()->is('analytics/*') ? 'active' : '' }}" href="{{ route('analytics') }}">Analytics</a>
+                    <a class="{{ request()->is('notifications') ? 'active' : '' }}" href="{{ route('notifications.index') }}">
+                        Notifications
+                        @if($unreadNotifications > 0)
+                            <span class="badge text-bg-danger">{{ $unreadNotifications }}</span>
+                        @endif
+                    </a>
+                    <a class="{{ request()->is('profile') ? 'active' : '' }}" href="{{ route('profile') }}">Profile</a>
                 @else
                     <a class="{{ request()->is('visit-history') ? 'active' : '' }}" href="{{ route('visit-history') }}">Visit History</a>
                     <a class="{{ request()->is('profile') ? 'active' : '' }}" href="{{ route('profile') }}">Profile</a>

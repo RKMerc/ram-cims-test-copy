@@ -740,10 +740,13 @@ class ClinicPortalTest extends TestCase
         $page = $this->get('/');
 
         $page->assertOk();
-        $page->assertSee('Log in');
+        $page->assertSee('Sign In to RAM-CIMS');
+        $page->assertSee('Sign in');
+        $page->assertSee('Forgot password');
         $page->assertSeeInOrder([
-            'Log in',
+            'Sign in',
             'Create an account',
+            'Forgot password',
             'Continue with Microsoft',
         ]);
         $page->assertDontSee('Continue with Google');
@@ -773,8 +776,8 @@ class ClinicPortalTest extends TestCase
         $this->post('/register', [
             'name' => 'Ana Cruz',
             'email' => 'ana.cruz@student.apc.edu.ph',
-            'password' => 'clinic-pass',
-            'password_confirmation' => 'clinic-pass',
+            'password' => 'clinic-pass1',
+            'password_confirmation' => 'clinic-pass1',
         ])->assertRedirect('/dashboard');
 
         $this->get('/dashboard')->assertSee('Welcome, Ana')->assertDontSee('View as');
@@ -787,8 +790,8 @@ class ClinicPortalTest extends TestCase
         $this->post('/register', [
             'name' => 'Ana Mae Torre',
             'email' => 'anamaet@apc.edu.ph',
-            'password' => 'clinic-pass',
-            'password_confirmation' => 'clinic-pass',
+            'password' => 'clinic-pass1',
+            'password_confirmation' => 'clinic-pass1',
         ])->assertRedirect('/dashboard');
 
         $this->get('/dashboard')->assertSee('APC Clinic Operations Dashboard')->assertDontSee('View as');
@@ -798,8 +801,8 @@ class ClinicPortalTest extends TestCase
         $this->post('/register', [
             'name' => 'Maria Magpantay',
             'email' => 'mariam@apc.edu.ph',
-            'password' => 'clinic-pass',
-            'password_confirmation' => 'clinic-pass',
+            'password' => 'clinic-pass1',
+            'password_confirmation' => 'clinic-pass1',
         ])->assertRedirect('/dashboard');
         $this->get('/inventory')->assertOk();
     }
@@ -809,8 +812,8 @@ class ClinicPortalTest extends TestCase
         $this->post('/register', [
             'name' => 'Outsider',
             'email' => 'outsider@yahoo.com',
-            'password' => 'clinic-pass',
-            'password_confirmation' => 'clinic-pass',
+            'password' => 'clinic-pass1',
+            'password_confirmation' => 'clinic-pass1',
         ])->assertSessionHasErrors('email');
     }
 

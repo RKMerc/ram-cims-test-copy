@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Inventory;
 use App\Models\LowStockReport;
+use App\Support\InventoryLedger;
+use App\Support\StockWatch;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -46,21 +48,45 @@ class InventoryController extends Controller
         return redirect('/inventory')->with('success', $message);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, InventoryLedger $ledger)
     {
         $validated = $this->validatedItem($request);
+        $quantity = (int) $validated['ITEM_QUANTITY'];
+        $validated['ITEM_QUANTITY'] = 0;
         $validated['ITEM_CODE'] = Inventory::nextItemCode();
-        Inventory::create($validated);
+        $item = Inventory::create($validated);
 
-        return redirect('/inventory')->with('success', 'Item '.$validated['ITEM_CODE'].' added to inventory.');
+        if ($quantity > 0) {
+            $ledger->receive($item, $quantity, $request->user(), 'Opening stock');
+        } else {
+            app(StockWatch::class)->sync($item);
+        }
+
+        return redirect('/inventory')->with('success', 'Item '.$item->ITEM_CODE.' added to inventory.');
     }
 
-    public function update(Request $request, $inventory)
+    public function update(Request $request, $inventory, InventoryLedger $ledger)
     {
         $item = Inventory::where('ITEM_CODE', $inventory)->firstOrFail();
-        $item->update($this->validatedItem($request));
+        $validated = $this->validatedItem($request);
+        $quantity = (int) $validated['ITEM_QUANTITY'];
+        unset($validated['ITEM_QUANTITY']);
+        $item->update($validated);
+        $ledger->setQuantity($item->fresh(), $quantity, $request->user());
 
         return response()->json(['message' => 'Item updated successfully!']);
+    }
+
+    public function dispense(Request $request, $inventory, InventoryLedger $ledger)
+    {
+        $quantity = (int) $request->validate([
+            'quantity' => ['required', 'integer', 'min:1'],
+        ])['quantity'];
+
+        $item = Inventory::where('ITEM_CODE', $inventory)->firstOrFail();
+        $updated = $ledger->dispense($item, $quantity, $request->user());
+
+        return redirect('/inventory')->with('success', 'Dispensed '.$quantity.' of '.$updated->GENERIC_NAME.'. '.$updated->ITEM_QUANTITY.' remaining.');
     }
 
     public function destroy($inventory)
