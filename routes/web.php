@@ -15,10 +15,10 @@ use App\Http\Controllers\VisitHistoryController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [MicrosoftController::class, 'showLoginForm'])->name('login');
-
-if (app()->environment('local')) {
-    Route::get('/preview/{role}', [PreviewController::class, 'enter'])->name('preview');
-}
+Route::get('/preview/{role}', [PreviewController::class, 'enter'])->name('preview');
+//if (app()->environment('production')) {
+//    Route::get('/preview/{role}', [PreviewController::class, 'enter'])->name('preview');
+//}
 
 Route::post('/users', [UserAccountController::class, 'store']);
 
