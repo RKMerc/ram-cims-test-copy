@@ -20,8 +20,17 @@ WORKDIR /var/www/html
 
 COPY . /var/www/html
 
-RUN sed -i -e 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf
-RUN sed -i -e 's!/var/www/!/var/www/html/public!g' /etc/apache2/apache2.conf
+# Configure Apache DocumentRoot to point to public/ and enable AllowOverride for .htaccess routing
+RUN echo "<VirtualHost *:80>\n\
+    DocumentRoot /var/www/html/public\n\
+    <Directory /var/www/html/public>\n\
+        Options Indexes FollowSymLinks\n\
+        AllowOverride All\n\
+        Require all granted\n\
+    </Directory>\n\
+    ErrorLog \${APACHE_LOG_DIR}/error.log\n\
+    CustomLog \${APACHE_LOG_DIR}/access.log combined\n\
+</VirtualHost>" > /etc/apache2/sites-available/000-default.conf
 
 RUN a2enmod rewrite
 
