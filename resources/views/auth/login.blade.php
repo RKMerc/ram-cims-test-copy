@@ -26,7 +26,7 @@
         </section>
 
         <div class="guest-actions">
-            @if(app()->environment('local'))
+            @if(app()->environment('production'))
                 <a href="{{ route('preview', 'student') }}" class="btn btn-primary py-2 fw-semibold">Preview student portal</a>
                 <a href="{{ route('preview', 'staff') }}" class="btn btn-outline-primary py-2 fw-semibold">Preview clinic staff portal</a>
             @endif
