@@ -34,31 +34,40 @@
                 <h2 class="fw-bold mb-2" style="color:#003B7A;">{{ ($lowStockItems ?? collect())->count() }}</h2>
                 @if(($lowStockItems ?? collect())->isEmpty() && ($configurationItems ?? collect())->isEmpty())
                     <p class="text-muted mb-0">All inventory stock levels are normal.</p>
-                @elseif(($lowStockItems ?? collect())->isEmpty())
-                    <p class="text-muted mb-0">{{ $configurationItems->count() }} out-of-stock item{{ $configurationItems->count() === 1 ? '' : 's' }} have no recorded baseline. No quantity was invented.</p>
-                @elseif(($lowStockItems ?? collect())->count() > 3)
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-outline-danger dropdown-toggle fw-semibold" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            View items
-                        </button>
-                        <ul class="dropdown-menu shadow-sm" style="max-height:16rem; overflow:auto; min-width:16rem;">
-                            @foreach($lowStockItems as $item)
-                                <li>
-                                    <span class="dropdown-item-text d-flex justify-content-between gap-3">
-                                        <span class="fw-semibold">{{ $item->GENERIC_NAME }}</span>
-                                        <span class="text-danger fw-semibold text-nowrap">{{ $item->ITEM_QUANTITY }} left</span>
-                                    </span>
-                                </li>
-                            @endforeach
-                        </ul>
-                    </div>
                 @else
-                    @foreach($lowStockItems as $item)
-                        <div class="d-flex justify-content-between gap-2 py-1 border-top">
-                            <span class="fw-semibold">{{ $item->GENERIC_NAME }}</span>
-                            <span class="text-danger fw-semibold">{{ $item->ITEM_QUANTITY }} left</span>
+                    @if(($lowStockItems ?? collect())->count() > 3)
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-danger dropdown-toggle fw-semibold" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                View items
+                            </button>
+                            <ul class="dropdown-menu shadow-sm" style="max-height:16rem; overflow:auto; min-width:16rem;">
+                                @foreach($lowStockItems as $item)
+                                    <li>
+                                        <span class="dropdown-item-text d-flex justify-content-between gap-3">
+                                            <span class="fw-semibold">{{ $item->GENERIC_NAME }}</span>
+                                            <span class="text-danger fw-semibold text-nowrap">{{ $item->ITEM_QUANTITY }} left</span>
+                                        </span>
+                                    </li>
+                                @endforeach
+                            </ul>
                         </div>
-                    @endforeach
+                    @elseif(($lowStockItems ?? collect())->isNotEmpty())
+                        @foreach($lowStockItems as $item)
+                            <div class="d-flex justify-content-between gap-2 py-1 border-top">
+                                <span class="fw-semibold">{{ $item->GENERIC_NAME }}</span>
+                                <span class="text-danger fw-semibold">{{ $item->ITEM_QUANTITY }} left</span>
+                            </div>
+                        @endforeach
+                    @endif
+                    @if(($configurationItems ?? collect())->isNotEmpty())
+                        <p class="text-muted mb-0 {{ ($lowStockItems ?? collect())->isNotEmpty() ? 'mt-2' : '' }}">{{ $configurationItems->count() }} item{{ $configurationItems->count() === 1 ? ' is' : 's are' }} out of stock and {{ $configurationItems->count() === 1 ? 'has' : 'have' }} no recorded baseline. No quantity was invented.</p>
+                        @foreach($configurationItems as $item)
+                            <div class="d-flex justify-content-between gap-2 py-1 border-top">
+                                <span class="fw-semibold">{{ $item->GENERIC_NAME }}</span>
+                                <span class="text-danger fw-semibold">Out of stock</span>
+                            </div>
+                        @endforeach
+                    @endif
                 @endif
             </div>
         </div>
@@ -130,8 +139,16 @@
     </div>
     @include('partials.low-stock-table', [
         'items' => $lowStockItems ?? collect(),
-        'empty' => ($configurationItems ?? collect())->isNotEmpty()
-            ? $configurationItems->count().' out-of-stock item'.($configurationItems->count() === 1 ? '' : 's').' have no recorded baseline. No quantity was invented.'
-            : null,
     ])
+    @if(($configurationItems ?? collect())->isNotEmpty())
+        <div class="px-4 py-3 border-top">
+            <div class="fw-semibold">Out of stock</div>
+            <p class="mb-2 text-muted">These items are out of stock and have no recorded baseline. No stock quantity was invented for them.</p>
+            <ul class="mb-0">
+                @foreach($configurationItems as $item)
+                    <li>{{ $item->GENERIC_NAME }} ({{ $item->ITEM_CATEGORY }}) — Out of stock</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 </div>

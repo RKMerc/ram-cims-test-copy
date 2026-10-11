@@ -16,6 +16,8 @@ class PortalGrant
         'madsoncha@gmail.com',
         'lccruz@student.apc.edu.ph',
         'latrellallencruz2314@gmail.com',
+        'ramercado3@student.apc.edu.ph',
+        'raf123mercado@gmail.com',
     ];
 
     public const STAFF = [
