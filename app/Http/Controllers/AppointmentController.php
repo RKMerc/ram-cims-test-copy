@@ -50,7 +50,7 @@ class AppointmentController extends Controller
             $query->where('SCHEDULED_AT', '>=', $weekStart);
         }
 
-        $appointments = $query->orderBy('APPOINTMENT_ID')->paginate(25)->withQueryString();
+        $appointments = $query->orderBy('SCHEDULED_AT')->orderBy('APPOINTMENT_ID')->paginate(25)->withQueryString();
 
         return view('appointments.index', [
             'appointments' => $appointments,
@@ -282,7 +282,7 @@ class AppointmentController extends Controller
 
         return array_values(array_filter(
             $slots,
-            fn (array $slot) => Carbon::parse($slot['value'])->greaterThan(now())
+            fn (array $slot) => ClinicCalendar::parse($slot['value'])->greaterThan(ClinicCalendar::now())
         ));
     }
 }

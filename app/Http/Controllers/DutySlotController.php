@@ -75,7 +75,7 @@ class DutySlotController extends Controller
 
     public function toggle(Request $request)
     {
-        abort_unless($this->canManageSlots($request), 403, 'Only an authorized nurse can change duty slot availability.');
+        abort_unless($this->canManageSlots($request), 403, 'Only an authorized nurse or a listed clinic developer can change duty slot availability.');
 
         $data = $this->validated($request);
         $status = $request->validate([
@@ -164,12 +164,12 @@ class DutySlotController extends Controller
 
     private function canManageSlots(Request $request): bool
     {
-        if (! $this->access->isStaff()) {
-            return false;
-        }
-
         if (PortalGrant::isDualView($request->user()?->email)) {
             return true;
+        }
+
+        if (! $this->access->isStaff()) {
+            return false;
         }
 
         $role = strtolower((string) $this->access->account()?->medicalStaff?->subUserType?->Name);

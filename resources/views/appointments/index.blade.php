@@ -56,7 +56,7 @@
         <div class="card-header bg-dark text-white d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
             <div>
                 <h5 class="mb-0 fw-bold">{{ $showingHistory ? 'Previous weeks' : ($isClinicStaff ? 'Clinic Appointments' : 'My Scheduled Appointments') }}</h5>
-                <div class="small" style="color:#E1B11A;">{{ $showingHistory ? 'Earlier visits stay on file.' : 'This week and later, sorted by appointment ID.' }}</div>
+                <div class="small" style="color:#E1B11A;">{{ $showingHistory ? 'Earlier visits stay on file, in appointment time order.' : 'This week and later, in appointment time order.' }}</div>
             </div>
             <a class="btn btn-sm btn-outline-light fw-semibold" href="{{ route('appointments.index', $showingHistory ? request()->except('page', 'history') : array_merge(request()->except('page'), ['history' => 1])) }}">{{ $showingHistory ? 'Current and upcoming' : 'Previous weeks' }}</a>
             @if($isClinicStaff)

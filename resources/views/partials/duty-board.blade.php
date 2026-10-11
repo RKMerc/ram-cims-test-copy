@@ -1,9 +1,9 @@
 @php
     $returnTo = request()->getRequestUri();
     $grid = $dutyGrid ?? ['days' => [], 'rows' => []];
-    $canManageSlots = ($isClinicStaff ?? false) && (
-        \App\Support\PortalGrant::isDualView(auth()->user()?->email)
-        || strtolower((string) ($clinicAccount->medicalStaff->subUserType->Name ?? '')) === 'nurse'
+    $canManageSlots = \App\Support\PortalGrant::isDualView(auth()->user()?->email) || (
+        ($isClinicStaff ?? false)
+        && strtolower((string) ($clinicAccount->medicalStaff->subUserType->Name ?? '')) === 'nurse'
     );
 @endphp
 

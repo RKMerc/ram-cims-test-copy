@@ -121,9 +121,34 @@ class ClinicRevisionTest extends TestCase
         ])->assertSessionHas('error');
 
         $this->assertGreaterThan(0, AuditLog::query()->where('action', 'duty.slot.availability')->count());
+
+        $developer = $this->signIn('Student', 'jaalba@student.apc.edu.ph', 'Dev', 'Tester', '2024000099');
+        $this->actingAs($developer)->post('/duty-slots/toggle', [
+            'practitioner' => $physician,
+            'duty_date' => $day,
+            'start' => '16:00:00',
+            'status' => 'unavailable',
+        ])->assertRedirect()->assertSessionHas('success');
     }
 
-    public function test_appointment_list_sorts_by_id_and_hides_previous_weeks_until_history_is_opened(): void
+    public function test_student_booking_hides_slots_that_already_passed_in_clinic_time(): void
+    {
+        $student = $this->signIn('Student', 'ana.clock@student.apc.edu.ph', 'Ana', 'Clock', '2024101222');
+        $physician = 'Dr. Marciano Fidel L. Avendaño';
+        Carbon::setTestNow(Carbon::parse('2026-10-15 15:30:00', 'Asia/Manila'));
+
+        try {
+            $open = $this->actingAs($student)->getJson('/appointments/slots?physician='.urlencode($physician).'&date=2026-10-15');
+            $open->assertOk();
+            $times = collect($open->json('slots'))->pluck('value');
+            $this->assertFalse($times->contains(fn ($value) => str_contains((string) $value, '14:00:00')));
+            $this->assertTrue($times->contains(fn ($value) => str_contains((string) $value, '16:00:00')));
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_appointment_list_sorts_by_time_and_hides_previous_weeks_until_history_is_opened(): void
     {
         $nurse = $this->signIn('Medical Staff', 'mina.list@apc.edu.ph', 'Mina', 'List', 'EMP-778', 'Nurse');
         $older = Appointment::create([
@@ -135,41 +160,41 @@ class ClinicRevisionTest extends TestCase
             'SCHEDULED_AT' => now()->subWeeks(2),
             'STATUS' => 'Scheduled',
         ]);
-        $second = Appointment::create([
+        Appointment::create([
             'PATIENT_ID' => '2',
             'PATIENT_NAME' => 'Later Visit',
             'APPOINTMENT_TYPE' => 'Consultation',
-            'APPOINTMENT_REASON' => 'Later week reason',
-            'ATTENDING_PHYSICIAN' => 'Dr. Marciano Fidel L. Avendaño',
-            'SCHEDULED_AT' => now()->addWeek(),
-            'STATUS' => 'Scheduled',
-        ]);
-        $first = Appointment::create([
-            'PATIENT_ID' => '3',
-            'PATIENT_NAME' => 'Earlier Id Visit',
-            'APPOINTMENT_TYPE' => 'Consultation',
-            'APPOINTMENT_REASON' => 'Earlier id reason',
+            'APPOINTMENT_REASON' => 'Later date reason',
             'ATTENDING_PHYSICIAN' => 'Dr. Marciano Fidel L. Avendaño',
             'SCHEDULED_AT' => now()->addWeeks(2),
+            'STATUS' => 'Scheduled',
+        ]);
+        Appointment::create([
+            'PATIENT_ID' => '3',
+            'PATIENT_NAME' => 'Sooner Visit',
+            'APPOINTMENT_TYPE' => 'Consultation',
+            'APPOINTMENT_REASON' => 'Sooner date reason',
+            'ATTENDING_PHYSICIAN' => 'Dr. Marciano Fidel L. Avendaño',
+            'SCHEDULED_AT' => now()->addWeek(),
             'STATUS' => 'Scheduled',
         ]);
 
         $page = $this->actingAs($nurse)->get('/appointments');
         $page->assertOk();
-        $page->assertSee('Earlier id reason');
-        $page->assertSee('Later week reason');
+        $page->assertSee('Sooner date reason');
+        $page->assertSee('Later date reason');
         $page->assertDontSee('Previous week reason');
         $html = $page->getContent();
-        $lowerId = strpos($html, 'Later week reason');
-        $higherId = strpos($html, 'Earlier id reason');
-        $this->assertNotFalse($lowerId);
-        $this->assertNotFalse($higherId);
-        $this->assertLessThan($higherId, $lowerId);
+        $sooner = strpos($html, 'Sooner date reason');
+        $later = strpos($html, 'Later date reason');
+        $this->assertNotFalse($sooner);
+        $this->assertNotFalse($later);
+        $this->assertLessThan($later, $sooner);
 
         $history = $this->actingAs($nurse)->get('/appointments?history=1');
         $history->assertOk();
         $history->assertSee('Previous week reason');
-        $history->assertDontSee('Later week reason');
+        $history->assertDontSee('Sooner date reason');
         $this->assertNotNull(Appointment::find($older->APPOINTMENT_ID));
     }
 
