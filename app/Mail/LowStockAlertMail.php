@@ -16,21 +16,32 @@ class LowStockAlertMail extends Mailable implements ShouldQueue
 
     public int $tries = 3;
 
+    public string $detectedAt;
+
     public function __construct(
         public Inventory $item,
         public string $status,
-    ) {}
+    ) {
+        $this->status = str_contains(strtoupper($status), 'OUT') ? 'OUT OF STOCK' : 'LOW STOCK';
+        $this->detectedAt = now()->timezone(config('app.timezone'))->format('F j, Y g:i A T');
+    }
+
+    public function alertLabel(): string
+    {
+        return str_contains(strtoupper($this->status), 'OUT') ? 'OUT OF STOCK' : 'LOW STOCK';
+    }
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'RAM-CIMS Inventory Alert: Low Stock',
+            subject: 'RAM-CIMS Inventory Alert: '.$this->alertLabel(),
         );
     }
 
     public function content(): Content
     {
         return new Content(
+            html: 'mail.low-stock-alert-html',
             text: 'mail.low-stock-alert',
         );
     }

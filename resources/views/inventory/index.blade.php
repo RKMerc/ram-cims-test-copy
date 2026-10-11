@@ -37,8 +37,8 @@
 
         @if(($configurationItems ?? collect())->isNotEmpty())
             <div class="alert alert-warning">
-                <div class="fw-semibold">Configuration required</div>
-                <p class="mb-2">These percentage thresholds need a target stock. No target was invented for them.</p>
+                <div class="fw-semibold">Baseline review</div>
+                <p class="mb-2">These items are out of stock and have no recorded baseline. No stock quantity was invented for them.</p>
                 <ul class="mb-0">
                     @foreach($configurationItems as $item)
                         <li>{{ $item->GENERIC_NAME }} ({{ $item->ITEM_CATEGORY }})</li>
@@ -174,9 +174,9 @@
                             <input type="number" class="form-control" id="ITEM_QUANTITY" name="ITEM_QUANTITY" min="0" placeholder="0" required>
                         </div>
                         <div class="col-md-6" data-item-group="target" hidden>
-                            <label for="target_stock" class="form-label fw-semibold">Target Stock</label>
+                            <label for="target_stock" class="form-label fw-semibold">Approved baseline (optional)</label>
                             <input type="number" class="form-control" id="target_stock" name="target_stock" min="1">
-                            <div class="form-text">Used for the category percentage. Leave blank if it is not known.</div>
+                            <div class="form-text">Leave blank. The initial quantity becomes the baseline and stays fixed when stock is dispensed.</div>
                         </div>
                         <div class="col-md-6" data-item-group="threshold" hidden>
                             <label for="minimum_stock" class="form-label fw-semibold">Custom Threshold (Optional)</label>
@@ -255,9 +255,9 @@
                             <input type="number" class="form-control" id="edit_ITEM_QUANTITY" name="ITEM_QUANTITY" min="0" required>
                         </div>
                         <div class="col-md-6" data-item-group="target">
-                            <label for="edit_target_stock" class="form-label fw-semibold">Target Stock</label>
+                            <label for="edit_target_stock" class="form-label fw-semibold">Approved baseline (optional)</label>
                             <input type="number" class="form-control" id="edit_target_stock" name="target_stock" min="1">
-                            <div class="form-text">Used for the category percentage. Leave blank if it is not known.</div>
+                            <div class="form-text">Leave blank to keep the saved baseline. Dispensing does not change it.</div>
                         </div>
                         <div class="col-md-6" data-item-group="threshold">
                             <label for="edit_minimum_stock" class="form-label fw-semibold">Custom Threshold (Optional)</label>

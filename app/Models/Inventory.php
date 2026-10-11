@@ -43,6 +43,8 @@ class Inventory extends Model
         'ITEM_QUANTITY',
         'minimum_stock',
         'target_stock',
+        'baseline_status',
+        'needs_baseline_review',
         'kit_complete',
         'ITEM_EXPIRATION_DATE'
     ];
@@ -70,7 +72,7 @@ class Inventory extends Model
 
         if ($threshold === null) {
             return [
-                'status' => 'CONFIGURATION REQUIRED',
+                'status' => $available === 0 ? 'OUT OF STOCK' : 'CONFIGURATION REQUIRED',
                 'threshold' => null,
                 'available' => $available,
             ];
@@ -116,8 +118,27 @@ class Inventory extends Model
         return static::query()
             ->orderBy('GENERIC_NAME')
             ->get()
-            ->filter(fn (self $item) => $item->stockAssessment()['status'] === 'CONFIGURATION REQUIRED')
+            ->filter(fn (self $item) => (bool) $item->needs_baseline_review)
             ->values();
+    }
+
+    public function usesPercentageThreshold(): bool
+    {
+        $rule = self::CATEGORY_THRESHOLDS[$this->normalizedCategory()] ?? null;
+
+        return ($rule['mode'] ?? null) === 'percent';
+    }
+
+    public function stockUnit(): string
+    {
+        foreach ([$this->ITEM_UNIT, $this->ITEM_FORM] as $value) {
+            $value = trim((string) $value);
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return 'units';
     }
 
     private function resolvedThreshold(): ?int

@@ -6,6 +6,7 @@ use App\Mail\LowStockAlertMail;
 use App\Models\ClinicNotification;
 use App\Models\Inventory;
 use App\Models\StockAlert;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
@@ -73,11 +74,11 @@ class StockWatch
 
     private function notify(Inventory $item, StockAlert $alert, bool $reminder): void
     {
-        $status = $alert->status === 'out' ? 'Out of Stock' : 'Low Stock';
+        $status = $alert->status === 'out' ? 'OUT OF STOCK' : 'LOW STOCK';
         $title = $reminder ? 'Low-stock reminder: '.$item->GENERIC_NAME : 'Inventory alert: '.$item->GENERIC_NAME;
         $threshold = $item->stockThreshold();
-        $minimum = $threshold === null ? 'Configuration required' : (string) $threshold;
-        $body = $item->GENERIC_NAME.' has '.$item->ITEM_QUANTITY.' on hand. The minimum is '.$minimum.'. Status: '.$status.'.';
+        $minimum = $threshold === null ? 'Baseline not recorded' : $threshold.' '.$item->stockUnit();
+        $body = $item->GENERIC_NAME.' has '.$item->ITEM_QUANTITY.' '.$item->stockUnit().' on hand. The minimum is '.$minimum.'. Status: '.$status.'.';
 
         ClinicNotification::create([
             'item_code' => $item->ITEM_CODE,
@@ -87,17 +88,24 @@ class StockWatch
         ]);
 
         $recipient = config('clinic.alert_email');
-        if (! is_string($recipient) || $recipient === '') {
+        if (! is_string($recipient) || trim($recipient) === '') {
+            Log::warning('Inventory email was not queued because CLINIC_ALERT_EMAIL is empty.', [
+                'item_code' => $item->ITEM_CODE,
+            ]);
+
             return;
         }
 
-        try {
-            Mail::to($recipient)->queue(new LowStockAlertMail($item, $status));
-        } catch (Throwable $exception) {
-            Log::warning('Low-stock email was not sent.', [
-                'item_code' => $item->ITEM_CODE,
-                'message' => $exception->getMessage(),
-            ]);
-        }
+        DB::afterCommit(function () use ($item, $status, $recipient) {
+            try {
+                Mail::to($recipient)->queue(new LowStockAlertMail($item, $status));
+            } catch (Throwable $exception) {
+                Log::warning('Low-stock email was not queued.', [
+                    'item_code' => $item->ITEM_CODE,
+                    'error' => $exception::class,
+                    'message' => $exception->getMessage(),
+                ]);
+            }
+        });
     }
 }

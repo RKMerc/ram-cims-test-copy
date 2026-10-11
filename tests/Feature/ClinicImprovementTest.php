@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\LowStockAlertMail;
 use App\Models\AppUser;
 use App\Models\AppUserMedicalStaff;
 use App\Models\ClinicNotification;
@@ -10,7 +11,11 @@ use App\Models\MedicalRecord;
 use App\Models\SubUserType;
 use App\Models\User;
 use App\Models\UserType;
+use App\Models\InventoryTransaction;
+use App\Models\StockAlert;
 use App\Support\ClinicAccess;
+use App\Support\InventoryLedger;
+use App\Support\StockBaseline;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
@@ -84,6 +89,7 @@ class ClinicImprovementTest extends TestCase
         $missing = $this->item('Medicine', 5, null);
         $this->assertSame('CONFIGURATION REQUIRED', $missing->stockAssessment()['status']);
         $this->assertNull($missing->stockThreshold());
+        $this->assertSame('OUT OF STOCK', $this->item('Medicine', 0, null)->stockAssessment()['status']);
 
         $custom = Inventory::create([
             'ITEM_CODE' => 7101,
@@ -151,7 +157,161 @@ class ClinicImprovementTest extends TestCase
 
         Inventory::where('ITEM_CODE', 7201)->update(['ITEM_QUANTITY' => 80]);
         app(\App\Support\StockWatch::class)->sync(Inventory::where('ITEM_CODE', 7201)->first());
-        $this->assertSame(0, \App\Models\StockAlert::where('item_code', 7201)->whereNull('resolved_at')->count());
+        $this->assertSame(0, StockAlert::where('item_code', 7201)->whereNull('resolved_at')->count());
+
+        Inventory::where('ITEM_CODE', 7201)->update(['ITEM_QUANTITY' => 40]);
+        app(\App\Support\StockWatch::class)->sync(Inventory::where('ITEM_CODE', 7201)->first());
+        $this->assertSame(1, StockAlert::where('item_code', 7201)->whereNull('resolved_at')->count());
+        $this->assertSame(3, ClinicNotification::count());
+        Mail::assertQueued(LowStockAlertMail::class, function (LowStockAlertMail $mail) {
+            return $mail->hasTo('clinic@apc.edu.ph')
+                && $mail->envelope()->subject === 'RAM-CIMS Inventory Alert: LOW STOCK';
+        });
+    }
+
+    public function test_baselines_are_initialized_once_and_do_not_move_when_stock_is_dispensed(): void
+    {
+        Mail::fake();
+        config(['clinic.alert_email' => 'anamaet@apc.edu.ph']);
+        $nurse = User::factory()->create(['email' => 'anamaet@apc.edu.ph', 'name' => 'Ana Mae Torre']);
+
+        $medicine = Inventory::create([
+            'ITEM_CODE' => 7301,
+            'GENERIC_NAME' => 'Ibuprofen <script>',
+            'ITEM_CATEGORY' => 'Medicine',
+            'ITEM_FORM' => 'Capsule',
+            'ITEM_UNIT' => 'Pieces / Pcs',
+            'ITEM_QUANTITY' => 100,
+        ]);
+        $this->assertSame('current', app(StockBaseline::class)->initialize($medicine));
+        $medicine->refresh();
+        $this->assertSame(100, (int) $medicine->ITEM_QUANTITY);
+        $this->assertSame(100, (int) $medicine->target_stock);
+        $this->assertSame('provisional', $medicine->baseline_status);
+        $this->assertSame(20, $medicine->stockThreshold());
+
+        $opening = Inventory::create([
+            'ITEM_CODE' => 7302,
+            'GENERIC_NAME' => 'Cetirizine',
+            'ITEM_CATEGORY' => 'Medicine',
+            'ITEM_FORM' => 'Capsule',
+            'ITEM_QUANTITY' => 0,
+        ]);
+        app(InventoryLedger::class)->receive($opening, 80, $nurse, 'Opening stock');
+        $opening->ITEM_QUANTITY = 40;
+        $opening->save();
+        $this->assertSame('opening', app(StockBaseline::class)->initialize($opening->fresh()));
+        $opening->refresh();
+        $this->assertSame(40, (int) $opening->ITEM_QUANTITY);
+        $this->assertSame(80, (int) $opening->target_stock);
+        $this->assertSame(16, $opening->stockThreshold());
+
+        $dispensed = Inventory::create([
+            'ITEM_CODE' => 7305,
+            'GENERIC_NAME' => 'Recorded ibuprofen',
+            'ITEM_CATEGORY' => 'Medicine',
+            'ITEM_FORM' => 'Capsule',
+            'ITEM_QUANTITY' => 50,
+        ]);
+        InventoryTransaction::create([
+            'item_code' => 7305,
+            'type' => 'dispense',
+            'quantity_changed' => -50,
+            'previous_quantity' => 100,
+            'updated_quantity' => 50,
+            'note' => 'Dispensed',
+        ]);
+        $this->assertSame('opening', app(StockBaseline::class)->initialize($dispensed));
+        $dispensed->refresh();
+        $this->assertSame(50, (int) $dispensed->ITEM_QUANTITY);
+        $this->assertSame(100, (int) $dispensed->target_stock);
+        $this->assertSame(20, $dispensed->stockThreshold());
+
+        $empty = Inventory::create([
+            'ITEM_CODE' => 7303,
+            'GENERIC_NAME' => 'Empty bottle',
+            'ITEM_CATEGORY' => 'Medicine',
+            'ITEM_FORM' => 'Capsule',
+            'ITEM_QUANTITY' => 0,
+        ]);
+        $this->assertSame('review', app(StockBaseline::class)->initialize($empty));
+        $empty->refresh();
+        $this->assertNull($empty->target_stock);
+        $this->assertSame(0, (int) $empty->ITEM_QUANTITY);
+        $this->assertTrue((bool) $empty->needs_baseline_review);
+        $this->assertSame('OUT OF STOCK', $empty->stockAssessment()['status']);
+
+        $custom = Inventory::where('ITEM_CODE', 7101)->first();
+        if (! $custom) {
+            $custom = Inventory::create([
+                'ITEM_CODE' => 7101,
+                'GENERIC_NAME' => 'Custom gauze',
+                'ITEM_CATEGORY' => 'Medical Supply',
+                'ITEM_FORM' => 'Pack',
+                'ITEM_QUANTITY' => 6,
+                'target_stock' => 200,
+                'minimum_stock' => 5,
+            ]);
+        }
+        app(StockBaseline::class)->initialize($custom);
+        $custom->refresh();
+        $this->assertSame(200, (int) $custom->target_stock);
+        $this->assertSame(5, (int) $custom->minimum_stock);
+        $this->assertSame('approved', $custom->baseline_status);
+
+        $this->artisan('clinic:initialize-baselines')->assertSuccessful();
+        $this->artisan('clinic:initialize-baselines')->expectsOutput('Initialized 0 provisional baselines.')->assertSuccessful();
+        $this->assertSame(100, (int) Inventory::where('ITEM_CODE', 7301)->value('ITEM_QUANTITY'));
+        $this->assertSame(100, (int) Inventory::where('ITEM_CODE', 7301)->value('target_stock'));
+
+        $this->actingAs($nurse)->post('/inventory/7301/dispense', ['quantity' => 40])->assertRedirect();
+        $medicine->refresh();
+        $this->assertSame(60, (int) $medicine->ITEM_QUANTITY);
+        $this->assertSame(100, (int) $medicine->target_stock);
+        $this->assertSame(20, $medicine->stockThreshold());
+        $this->assertSame('NORMAL', $medicine->stockAssessment()['status']);
+
+        $this->actingAs($nurse)->post('/inventory/7301/dispense', ['quantity' => 40])->assertRedirect();
+        $medicine->refresh();
+        $this->assertSame('LOW STOCK', $medicine->stockAssessment()['status']);
+        Mail::assertQueued(LowStockAlertMail::class, function (LowStockAlertMail $mail) {
+            return $mail->hasTo('anamaet@apc.edu.ph')
+                && $mail->envelope()->subject === 'RAM-CIMS Inventory Alert: LOW STOCK';
+        });
+
+        $html = view('mail.low-stock-alert-html', [
+            'item' => $medicine->fresh(),
+            'status' => 'LOW STOCK',
+            'detectedAt' => 'October 12, 2026 1:00 AM UTC',
+        ])->render();
+        $this->assertStringContainsString('Dear Ms. Torre', $html);
+        $this->assertStringContainsString('Ibuprofen &lt;script&gt;', $html);
+        $this->assertStringNotContainsString('<script>', $html);
+        $this->assertStringContainsString('20 Pieces / Pcs', $html);
+
+        config(['clinic.alert_email' => '']);
+        Mail::fake();
+        $this->actingAs($nurse)->post('/inventory/7301/dispense', ['quantity' => 20])->assertRedirect();
+        $medicine->refresh();
+        $this->assertSame(0, (int) $medicine->ITEM_QUANTITY);
+        $this->assertSame(100, (int) $medicine->target_stock);
+        $this->assertSame('OUT OF STOCK', $medicine->stockAssessment()['status']);
+        Mail::assertNothingQueued();
+
+        $this->actingAs($nurse)->post('/inventory', [
+            'GENERIC_NAME' => 'Loratadine',
+            'ITEM_CATEGORY' => 'Medicine',
+            'ITEM_DOSAGE' => '10',
+            'ITEM_UNIT' => 'Milligram (mg)',
+            'ITEM_FORM' => 'Capsule',
+            'ITEM_QUANTITY' => 50,
+            'ITEM_EXPIRATION_DATE' => now()->addYear()->toDateString(),
+        ])->assertRedirect('/inventory');
+        $created = Inventory::where('GENERIC_NAME', 'Loratadine')->first();
+        $this->assertSame(50, (int) $created->ITEM_QUANTITY);
+        $this->assertSame(50, (int) $created->target_stock);
+        $this->assertSame('provisional', $created->baseline_status);
+        $this->assertSame(10, $created->stockThreshold());
     }
 
     public function test_account_modal_hides_clinical_fields_until_the_type_is_medical_staff(): void

@@ -24,15 +24,15 @@ Profile shows Connected Accounts. Connecting Microsoft from a signed-in profile 
 
 Dispensing subtracts the quantity entered, not a dosage schedule. A dispense of 8 from 100 leaves 92. Zero, negative, over-stock, and expired medicine dispenses are rejected. Each change is stored in `inventory_transactions` inside a database transaction. The log stores the item code, type, quantity change, previous quantity, new quantity, user, and time. It does not store a patient name.
 
-Low stock no longer uses one threshold of 10 for every item. A saved per-item threshold wins. Otherwise Medicine uses 20 percent of target stock, Medical Supply uses 25 percent, Equipment uses 1 unit, and a First Aid Kit uses 2 kits. These are initial settings, not clinically approved standards. If a percentage category has no target stock, the status is CONFIGURATION REQUIRED and no target is invented. An incomplete first aid kit is not counted as a complete kit. Stock above the threshold is NORMAL, stock at or below it is LOW STOCK, and zero is OUT OF STOCK.
+Low stock no longer uses one threshold of 10 for every item. A saved custom threshold wins. Otherwise Medicine uses 20 percent of its baseline, Medical Supply uses 25 percent, Equipment uses 1 unit, and a First Aid Kit uses 2 kits. These are provisional settings, not clinically approved standards. `clinic:initialize-baselines` stores a baseline once: an existing target is kept, otherwise the first opening receipt is used, otherwise the stock recorded before the earliest inventory movement is used, otherwise the current positive quantity is stored as provisional. The baseline is not recalculated when stock is dispensed. An item at zero with no baseline stays out of stock and is flagged for review. No quantity is invented. An incomplete first aid kit is not counted as a complete kit. Stock above the threshold is NORMAL, stock at or below it is LOW STOCK, and zero is OUT OF STOCK.
 
 ## Low-stock mail and notifications
 
 When stock first reaches its calculated threshold, the app creates an in-app alert and queues `LowStockAlertMail`. A second dispense while the same shortage is still open does not send another alert. `clinic:stock-reminders` sends one reminder only after 24 hours have passed since the last notice. Reaching zero opens an out-of-stock alert. Stock above the threshold resolves the open alert. Marking a notification read does not restock the item or close the shortage.
 
-The recipient is `CLINIC_ALERT_EMAIL`. If it is empty, only the in-app alert is created. A mail exception is logged and does not roll back the stock change. The queued mail tries up to 3 times. Reminders are eligible 24 hours after the last notice, and the scheduler runs every 15 minutes with an overlap lock. A daily midnight job is not the only timer.
+The recipient is `CLINIC_ALERT_EMAIL` only. The local setting is anamaet@apc.edu.ph. The message is addressed to Ms. Torre and contains the item, category, quantity, automatic threshold, status, and timestamp. It does not contain patient information. If the recipient is empty, only the in-app alert is created. The mail job is queued after the stock transaction commits. A mail exception is logged and does not roll back the stock change. The queued mail tries up to 3 times. Reminders are eligible 24 hours after the last notice, and the scheduler runs every 15 minutes with an overlap lock. A daily midnight job is not the only timer.
 
-Live Gmail delivery was not tested. `.env.example` documents `smtp.gmail.com` port 587. The running app still uses `MAIL_MAILER=log` until a Gmail app password is supplied. Do not switch the mailer to `sendmail`.
+Live Gmail delivery was not tested. `.env.example` documents `smtp.gmail.com` port 587 with `MAIL_SCHEME=smtp` for STARTTLS. The running app still uses `MAIL_MAILER=log` because `MAIL_USERNAME` and `MAIL_PASSWORD` are empty. Do not switch the mailer to `sendmail`. Do not send a message to the clinic recipient until the sender account and the recipient have both been authorized.
 
 ## RAMsey
 
@@ -46,14 +46,18 @@ The Edit User Account form shows Medical Staff Role and License No. only when th
 
 ## Deployment
 
-The additive migrations `2026_10_11_120000_add_panelist_security_tables` and `2026_10_12_090000_add_inventory_threshold_settings` were applied to the local `ram_cims` database. They do not delete accounts, patients, records, appointments, or inventory.
+The additive migrations `2026_10_11_120000_add_panelist_security_tables`, `2026_10_12_090000_add_inventory_threshold_settings`, and `2026_10_12_150000_add_inventory_baseline_status` were applied to the local `ram_cims` database. They do not delete accounts, patients, records, appointments, or inventory. `clinic:initialize-baselines` can be run again; it does not change stock quantities or existing baselines.
 
 The reminder command is scheduled every 15 minutes:
 
 `*/15 * * * * php artisan clinic:stock-reminders`
 
-Production still needs a cron entry for `php artisan schedule:run`, a queue worker because low-stock mail implements `ShouldQueue`, HTTPS, and the Microsoft redirect URI that matches the deployed host. This pass did not deploy the app or change production hosting.
+Production needs a cron entry that runs `php artisan schedule:run` every minute, and a queue worker that stays running:
+
+`php artisan queue:work --tries=3`
+
+The local queue connection is `database`. A failed job remains in `failed_jobs` and can be retried with `php artisan queue:retry`. This pass did not deploy the app or change production hosting. HTTPS and the Microsoft redirect URI still have to match the deployed host.
 
 ## Tests
 
-`php artisan test` was run after the chatbot, threshold, and account-form changes: 37 passed, 513 assertions. The mailer is still `log`, so Gmail delivery was not verified. A completed Microsoft sign-in was not run.
+`php artisan test` was run after the baseline, notification, and mail-template changes: 38 passed, 566 assertions. The mailer is still `log`, so Gmail delivery was not verified. A completed Microsoft sign-in was not run.

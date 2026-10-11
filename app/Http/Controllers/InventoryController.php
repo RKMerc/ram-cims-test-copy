@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Inventory;
 use App\Models\LowStockReport;
 use App\Support\InventoryLedger;
+use App\Support\StockBaseline;
 use App\Support\StockWatch;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -55,12 +56,17 @@ class InventoryController extends Controller
         $quantity = (int) $validated['ITEM_QUANTITY'];
         $validated['ITEM_QUANTITY'] = 0;
         $validated['ITEM_CODE'] = Inventory::nextItemCode();
+        if (isset($validated['target_stock'])) {
+            $validated['baseline_status'] = 'approved';
+            $validated['needs_baseline_review'] = false;
+        }
         $item = Inventory::create($validated);
+        app(StockBaseline::class)->initialize($item, $quantity);
 
         if ($quantity > 0) {
-            $ledger->receive($item, $quantity, $request->user(), 'Opening stock');
+            $ledger->receive($item->fresh(), $quantity, $request->user(), 'Opening stock');
         } else {
-            app(StockWatch::class)->sync($item);
+            app(StockWatch::class)->sync($item->fresh());
         }
 
         return redirect('/inventory')->with('success', 'Item '.$item->ITEM_CODE.' added to inventory.');
@@ -69,10 +75,18 @@ class InventoryController extends Controller
     public function update(Request $request, $inventory, InventoryLedger $ledger)
     {
         $item = Inventory::where('ITEM_CODE', $inventory)->firstOrFail();
+        $previousBaseline = (int) ($item->target_stock ?? 0);
         $validated = $this->validatedItem($request);
         $quantity = (int) $validated['ITEM_QUANTITY'];
         unset($validated['ITEM_QUANTITY']);
+        $submittedBaseline = array_key_exists('target_stock', $validated) && $validated['target_stock'] !== null;
         $item->update($validated);
+        if ($submittedBaseline && (int) $validated['target_stock'] !== $previousBaseline) {
+            $item->forceFill([
+                'baseline_status' => 'approved',
+                'needs_baseline_review' => false,
+            ])->save();
+        }
         $ledger->setQuantity($item->fresh(), $quantity, $request->user());
 
         return response()->json(['message' => 'Item updated successfully!']);
@@ -132,6 +146,10 @@ class InventoryController extends Controller
 
         if (! in_array($category, ['Medicine', 'Medical Supply'], true)) {
             $validated['target_stock'] = null;
+            $validated['baseline_status'] = null;
+            $validated['needs_baseline_review'] = false;
+        } elseif (($validated['target_stock'] ?? null) === null) {
+            unset($validated['target_stock']);
         }
 
         if ($category === 'First Aid Kit') {

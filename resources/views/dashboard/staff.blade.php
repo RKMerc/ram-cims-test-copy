@@ -35,7 +35,7 @@
                 @if(($lowStockItems ?? collect())->isEmpty() && ($configurationItems ?? collect())->isEmpty())
                     <p class="text-muted mb-0">All inventory stock levels are normal.</p>
                 @elseif(($lowStockItems ?? collect())->isEmpty())
-                    <p class="text-muted mb-0">{{ $configurationItems->count() }} item{{ $configurationItems->count() === 1 ? '' : 's' }} need a target stock before a percentage threshold can be calculated.</p>
+                    <p class="text-muted mb-0">{{ $configurationItems->count() }} out-of-stock item{{ $configurationItems->count() === 1 ? '' : 's' }} have no recorded baseline. No quantity was invented.</p>
                 @elseif(($lowStockItems ?? collect())->count() > 3)
                     <div class="dropdown">
                         <button class="btn btn-sm btn-outline-danger dropdown-toggle fw-semibold" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -131,7 +131,7 @@
     @include('partials.low-stock-table', [
         'items' => $lowStockItems ?? collect(),
         'empty' => ($configurationItems ?? collect())->isNotEmpty()
-            ? $configurationItems->count().' item'.($configurationItems->count() === 1 ? '' : 's').' need a target stock. No target was invented.'
+            ? $configurationItems->count().' out-of-stock item'.($configurationItems->count() === 1 ? '' : 's').' have no recorded baseline. No quantity was invented.'
             : null,
     ])
 </div>
