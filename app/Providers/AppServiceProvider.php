@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\ClinicNotification;
+use App\Models\NotificationRead;
 use App\Support\ClinicAccess;
-use App\Support\DeveloperMode;
 use App\Support\DutyBoard;
+use App\Support\PortalGrant;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\View;
@@ -34,7 +36,15 @@ class AppServiceProvider extends ServiceProvider
             $access = app(ClinicAccess::class);
             $view->with('clinicAccount', $access->account());
             $view->with('isClinicStaff', $access->isStaff());
-            $view->with('developerMode', DeveloperMode::enabled());
+            $view->with('canSwitchViews', PortalGrant::isDualView(auth()->user()?->email));
+            $view->with('canManageProfiles', PortalGrant::canManageProfiles(auth()->user()?->email, $access->account()));
+
+            $unread = 0;
+            if (auth()->check() && $access->isStaff()) {
+                $readIds = NotificationRead::query()->where('user_id', auth()->id())->pluck('clinic_notification_id');
+                $unread = ClinicNotification::query()->whereNotIn('id', $readIds->all() ?: [0])->count();
+            }
+            $view->with('unreadNotifications', $unread);
         });
 
         View::composer('partials.duty-board', function ($view) {

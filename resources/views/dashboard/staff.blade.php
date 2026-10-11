@@ -11,7 +11,7 @@
 @endif
 
 <div class="row g-4 mb-4">
-    <div class="col-md-6">
+    <div class="col-md-4">
         <div class="card h-100 border-start border-4" style="border-color:#003B7A !important;">
             <div class="card-body">
                 <h6 class="text-muted fw-semibold text-uppercase mb-2" style="font-size:.78rem; letter-spacing:.04em;">Appointments Today</h6>
@@ -19,11 +19,47 @@
             </div>
         </div>
     </div>
-    <div class="col-md-6">
+    <div class="col-md-4">
         <div class="card h-100 border-start border-4" style="border-color:#E1B11A !important;">
             <div class="card-body">
                 <h6 class="text-muted fw-semibold text-uppercase mb-2" style="font-size:.78rem; letter-spacing:.04em;">Total Patients Queued</h6>
                 <h2 class="fw-bold mb-0" style="color:#003B7A;">{{ $patientsQueued ?? 0 }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 border-start border-4" style="border-color:#b42318 !important;">
+            <div class="card-body">
+                <h6 class="text-muted fw-semibold text-uppercase mb-2" style="font-size:.78rem; letter-spacing:.04em;">Low Stock Alert</h6>
+                <h2 class="fw-bold mb-2" style="color:#003B7A;">{{ ($lowStockItems ?? collect())->count() }}</h2>
+                @if(($lowStockItems ?? collect())->isEmpty() && ($configurationItems ?? collect())->isEmpty())
+                    <p class="text-muted mb-0">All inventory stock levels are normal.</p>
+                @elseif(($lowStockItems ?? collect())->isEmpty())
+                    <p class="text-muted mb-0">{{ $configurationItems->count() }} out-of-stock item{{ $configurationItems->count() === 1 ? '' : 's' }} have no recorded baseline. No quantity was invented.</p>
+                @elseif(($lowStockItems ?? collect())->count() > 3)
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-danger dropdown-toggle fw-semibold" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            View items
+                        </button>
+                        <ul class="dropdown-menu shadow-sm" style="max-height:16rem; overflow:auto; min-width:16rem;">
+                            @foreach($lowStockItems as $item)
+                                <li>
+                                    <span class="dropdown-item-text d-flex justify-content-between gap-3">
+                                        <span class="fw-semibold">{{ $item->GENERIC_NAME }}</span>
+                                        <span class="text-danger fw-semibold text-nowrap">{{ $item->ITEM_QUANTITY }} left</span>
+                                    </span>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @else
+                    @foreach($lowStockItems as $item)
+                        <div class="d-flex justify-content-between gap-2 py-1 border-top">
+                            <span class="fw-semibold">{{ $item->GENERIC_NAME }}</span>
+                            <span class="text-danger fw-semibold">{{ $item->ITEM_QUANTITY }} left</span>
+                        </div>
+                    @endforeach
+                @endif
             </div>
         </div>
     </div>
@@ -89,45 +125,13 @@
 </div>
 
 <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white py-3 border-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <div class="card-header bg-white py-3 border-0">
         <h5 class="fw-bold mb-0" style="color:#003B7A;">Low Stock Inventory Alert</h5>
-        <form method="POST" action="{{ route('dashboard.notify-logistics') }}">
-            @csrf
-            <button type="submit" class="btn btn-sm btn-outline-primary fw-semibold">Notify Logistics</button>
-        </form>
     </div>
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-light text-uppercase" style="font-size:.78rem;">
-                <tr>
-                    <th class="ps-4">Item Code</th>
-                    <th>Generic Name</th>
-                    <th>Brand Name</th>
-                    <th>Dosage</th>
-                    <th>Category</th>
-                    <th>Expiration Date</th>
-                    <th class="text-end pe-4">Quantity Remaining</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($lowStockItems ?? [] as $item)
-                    <tr>
-                        <td class="ps-4 fw-semibold text-secondary">#{{ $item->ITEM_CODE }}</td>
-                        <td class="fw-medium">{{ $item->GENERIC_NAME }}</td>
-                        <td>{{ $item->BRAND_NAME }}</td>
-                        <td>{{ trim(($item->ITEM_DOSAGE ?: '').' '.($item->ITEM_UNIT ?: '').' '.($item->ITEM_FORM ?: '')) ?: 'N/A' }}</td>
-                        <td><span class="badge bg-secondary bg-opacity-10 text-secondary">{{ $item->ITEM_CATEGORY }}</span></td>
-                        <td class="text-muted">{{ $item->ITEM_EXPIRATION_DATE ? \Carbon\Carbon::parse($item->ITEM_EXPIRATION_DATE)->format('Y-m-d') : 'N/A' }}</td>
-                        <td class="text-end pe-4">
-                            <span class="badge bg-danger px-2 py-1">{{ $item->ITEM_QUANTITY }} units</span>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="7" class="text-center py-4 text-muted">All inventory stock levels are normal. ✨</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+    @include('partials.low-stock-table', [
+        'items' => $lowStockItems ?? collect(),
+        'empty' => ($configurationItems ?? collect())->isNotEmpty()
+            ? $configurationItems->count().' out-of-stock item'.($configurationItems->count() === 1 ? '' : 's').' have no recorded baseline. No quantity was invented.'
+            : null,
+    ])
 </div>

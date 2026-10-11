@@ -4,19 +4,20 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class ScheduleReminder extends Model
+class NotificationRead extends Model
 {
+    public $timestamps = false;
+
     protected $fillable = [
-        'email',
-        'patient_name',
-        'note',
-        'notified_at',
+        'clinic_notification_id',
+        'user_id',
+        'read_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'notified_at' => 'datetime',
+            'read_at' => 'datetime',
         ];
     }
 }

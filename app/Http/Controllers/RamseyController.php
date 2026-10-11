@@ -7,18 +7,15 @@ use App\Models\Inventory;
 use App\Models\MedicalRecord;
 use App\Support\ClinicAccess;
 use App\Support\ClinicRoster;
-use App\Support\DeveloperMode;
 use App\Support\DutyBoard;
+use App\Support\PortalGrant;
+use App\Support\RamseyDialogue;
 use App\Support\RamseyPersona;
-use App\Support\ScheduleAlerts;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class RamseyController extends Controller
 {
-    private const LOW_STOCK_AT = 10;
-
     public function __construct(private RamseyPersona $persona, private DutyBoard $board)
     {
     }
@@ -32,6 +29,10 @@ class RamseyController extends Controller
         ]);
 
         $message = strtolower(trim($validated['message']));
+        $dialogue = app(RamseyDialogue::class)->answer($validated['message']);
+        if ($dialogue) {
+            return $this->reply($dialogue['reply'], $dialogue['links']);
+        }
 
         if ($this->persona->staff()) {
             if ($this->clinicalRequest($message)) {
@@ -48,48 +49,13 @@ class RamseyController extends Controller
         return $this->answerStudent($message);
     }
 
-    public function remind(Request $request)
-    {
-        if ($this->persona->staff()) {
-            return $this->reply('Slot alerts are part of the student health assistant.');
-        }
-
-        $data = $request->validate([
-            'email' => 'required|email|max:255',
-            'physician' => ['required', 'string', Rule::in(ClinicRoster::names())],
-            'date' => 'required|date',
-        ]);
-
-        $when = Carbon::parse($data['date'])->toDateString();
-        $result = ScheduleAlerts::watch(
-            $data['email'],
-            app(ClinicAccess::class)->account()?->fullName(),
-            $data['physician'],
-            $when,
-        );
-
-        $label = Carbon::parse($when)->format('F j, Y');
-
-        if ($result['open'] && $result['sent']) {
-            $reply = 'A slot is already open for '.$data['physician'].' on '.$label.'. I emailed '.$data['email'].'.';
-        } elseif ($result['open']) {
-            $reply = 'A slot is already open for '.$data['physician'].' on '.$label.', but the email could not be sent. Your alert is saved for '.$data['email'].'.';
-        } else {
-            $reply = 'Your alert is saved. When a slot opens for '.$data['physician'].' on '.$label.', I will email '.$data['email'].'.';
-        }
-
-        return $this->reply($reply);
-    }
-
     public function view(Request $request)
     {
-        abort_unless(DeveloperMode::enabled(), 403);
-
         $choice = $request->validate([
             'view' => 'required|in:student,staff',
         ])['view'];
 
-        session(['clinic.ramsey_persona' => $choice]);
+        abort_unless(PortalGrant::rememberView($request->user()?->email, $choice), 403);
 
         return response()->json($this->persona->payload());
     }
@@ -152,7 +118,7 @@ class RamseyController extends Controller
 
         if ($name = $this->namedPhysician($message)) {
             return $this->reply(
-                $name." is on duty during:\n".$this->rosterHours($name)."\n\nChoose that physician and a date below if you want an email when a slot opens.",
+                $name." is on duty during:\n".$this->rosterHours($name),
                 [
                     ['label' => 'Schedule Check-Up', 'href' => '/appointments'],
                 ]
@@ -160,7 +126,9 @@ class RamseyController extends Controller
         }
 
         if ($this->mentions($message, ['remind', 'availability', 'slot', 'open'])) {
-            return $this->reply('Choose a physician and a date below. I will email you when an appointment slot opens.');
+            return $this->reply('Open Appointments and choose an open hour on the duty schedule.', [
+                ['label' => 'Schedule Check-Up', 'href' => '/appointments'],
+            ]);
         }
 
         if ($this->mentions($message, ['dashboard', 'home'])) {
@@ -169,13 +137,7 @@ class RamseyController extends Controller
             ]);
         }
 
-        return $this->reply(
-            'I can schedule a check-up, show your latest visit, list prescriptions on your chart, or email you when a slot opens.',
-            [
-                ['label' => 'Schedule Check-Up', 'href' => '/appointments'],
-                ['label' => 'Visit history', 'href' => '/visit-history'],
-            ]
-        );
+        return $this->reply('Sorry, hindi ko naintindihan ang message mo. Maaari mo bang linawin?');
     }
 
     private function staffKeywords(string $message)
@@ -221,10 +183,7 @@ class RamseyController extends Controller
             ]);
         }
 
-        return $this->reply($this->persona->description(), [
-            ['label' => 'Open the queue', 'href' => '/dashboard'],
-            ['label' => 'Open Inventory Manager', 'href' => '/inventory'],
-        ]);
+        return $this->reply('Sorry, hindi ko naintindihan ang message mo. Maaari mo bang linawin?');
     }
 
     private function checkUpReply()
@@ -320,11 +279,7 @@ class RamseyController extends Controller
 
     private function lowStockReply()
     {
-        $items = Inventory::query()
-            ->where('ITEM_QUANTITY', '<=', self::LOW_STOCK_AT)
-            ->orderBy('ITEM_QUANTITY')
-            ->orderBy('GENERIC_NAME')
-            ->get();
+        $items = Inventory::lowStockItems();
 
         if ($items->isEmpty()) {
             return $this->reply('All inventory stock levels are normal.', [
@@ -340,7 +295,7 @@ class RamseyController extends Controller
         })->implode("\n");
 
         $extra = $items->count() - $shown->count();
-        $reply = $items->count().' item'.($items->count() === 1 ? '' : 's').' at or below the minimum threshold of '.self::LOW_STOCK_AT.":\n".$lines;
+        $reply = $items->count().' item'.($items->count() === 1 ? '' : 's')." at or below its stock threshold:\n".$lines;
 
         if ($extra > 0) {
             $reply .= "\n".$extra.' more in the inventory manager.';
@@ -449,7 +404,7 @@ class RamseyController extends Controller
         $appointments = Appointment::query()->whereDate('SCHEDULED_AT', $day)->count();
         $queued = Appointment::query()->whereDate('SCHEDULED_AT', $day)->queued()->count();
         $visits = MedicalRecord::query()->whereDate('MEDREC_CONSUL_DATE', $day)->count();
-        $low = Inventory::query()->where('ITEM_QUANTITY', '<=', self::LOW_STOCK_AT)->count();
+        $low = Inventory::lowStockItems()->count();
 
         $reply = "Clinic visit report for {$label}:\n"
             ."Appointments: {$appointments}\n"

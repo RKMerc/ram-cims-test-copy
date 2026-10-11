@@ -8,7 +8,7 @@ class RamseyPersona
 
     public const STAFF_TITLE = 'RAMsey Clinic Operations Assistant';
 
-    public const STUDENT_DESCRIPTION = 'Your automated assistant for clinic appointment reminders, checking personal visit history, and navigating student health services. RAMsey cannot provide medical diagnoses or prescribe medication.';
+    public const STUDENT_DESCRIPTION = 'Your automated assistant for scheduling check-ups, checking personal visit history, and navigating student health services. RAMsey cannot provide medical diagnoses or prescribe medication.';
 
     public const STAFF_DESCRIPTION = 'Your operational copilot for clinic workflow shortcuts, low-stock inventory alerts, queue summary updates, and report generation assistance.';
 
@@ -18,19 +18,7 @@ class RamseyPersona
 
     public function staff(): bool
     {
-        if (DeveloperMode::enabled()) {
-            $preview = session('clinic.ramsey_persona');
-
-            if ($preview === 'staff') {
-                return true;
-            }
-
-            if ($preview === 'student') {
-                return false;
-            }
-        }
-
-        return (bool) app(ClinicAccess::class)->account()?->isClinicStaff();
+        return app(ClinicAccess::class)->isStaff();
     }
 
     public function title(): string
@@ -49,7 +37,7 @@ class RamseyPersona
             return 'I can pull low stock, today\'s queue, a physician\'s open and occupied hours, and the clinic visit report.';
         }
 
-        return 'I can help with your check-ups, your own visit history, prescriptions already on your chart, and slot alerts. I cannot diagnose you or prescribe medication.';
+        return 'I can help with your check-ups, your own visit history, and prescriptions already on your chart. I cannot diagnose you or prescribe medication.';
     }
 
     public function chips(): array
@@ -67,7 +55,6 @@ class RamseyPersona
         }
 
         return [
-            ['label' => 'Set Schedule Availability Reminders', 'panel' => 'remind'],
             ['label' => 'Schedule Check-Up', 'ask' => 'Schedule Check-Up'],
             ['label' => 'View My Latest Visit Summary', 'ask' => 'View My Latest Visit Summary'],
             ['label' => 'View My Active Prescriptions', 'ask' => 'View My Active Prescriptions'],

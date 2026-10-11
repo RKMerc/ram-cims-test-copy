@@ -9,8 +9,6 @@ use App\Support\ClinicAccess;
 
 class DashboardController extends Controller
 {
-    private const LOW_STOCK_AT = 10;
-
     public function __construct(private ClinicAccess $access)
     {
     }
@@ -54,16 +52,6 @@ class DashboardController extends Controller
                 : 'Treatment-first mode is off. The queue follows the schedule.');
     }
 
-    public function notifyLogistics()
-    {
-        $low = Inventory::query()->where('ITEM_QUANTITY', '<=', self::LOW_STOCK_AT)->count();
-        $message = $low > 0
-            ? 'Logistics has been notified about '.$low.' low-stock item'.($low === 1 ? '' : 's').'.'
-            : 'Logistics has been notified. All inventory stock levels are within range.';
-
-        return redirect()->route('dashboard')->with('success', $message);
-    }
-
     private function staffData(): array
     {
         $treatmentFirst = (bool) session('clinic.treatment_first');
@@ -72,10 +60,8 @@ class DashboardController extends Controller
             'appointmentsToday' => Appointment::query()->whereDate('SCHEDULED_AT', today())->count(),
             'patientsQueued' => Appointment::query()->whereDate('SCHEDULED_AT', today())->queued()->count(),
             'queue' => $this->queueQuery($treatmentFirst)->take(8)->get(),
-            'lowStockItems' => Inventory::query()
-                ->where('ITEM_QUANTITY', '<=', self::LOW_STOCK_AT)
-                ->orderBy('ITEM_QUANTITY')
-                ->get(),
+            'lowStockItems' => Inventory::lowStockItems(),
+            'configurationItems' => Inventory::configurationRequiredItems(),
             'treatmentFirst' => $treatmentFirst,
         ];
     }

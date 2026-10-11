@@ -70,12 +70,15 @@ class ClinicPortalTest extends TestCase
         $dashboard->assertSee('Profile');
         $dashboard->assertSee('+ Schedule Check-Up');
         $dashboard->assertSee('RAMsey Student Health Assistant');
-        $dashboard->assertSee('Your automated assistant for clinic appointment reminders, checking personal visit history, and navigating student health services. RAMsey cannot provide medical diagnoses or prescribe medication.');
+        $dashboard->assertSee('Your automated assistant for scheduling check-ups, checking personal visit history, and navigating student health services. RAMsey cannot provide medical diagnoses or prescribe medication.');
+        $dashboard->assertDontSee('Email me when a slot opens');
+        $dashboard->assertDontSee('Set Schedule Availability Reminders');
         $dashboard->assertSee('Schedule Check-Up');
         $dashboard->assertSee('View My Latest Visit Summary');
         $dashboard->assertSee('View My Active Prescriptions');
         $dashboard->assertDontSee('RAMsey Clinic Operations Assistant');
         $dashboard->assertDontSee('Dev preview');
+        $dashboard->assertDontSee('View as');
         $dashboard->assertDontSee('APC Clinic Operations Dashboard');
         $dashboard->assertDontSee('Other Patient');
         $dashboard->assertDontSee('>Inventory<');
@@ -95,14 +98,29 @@ class ClinicPortalTest extends TestCase
         $appointments->assertSee('Dr. Reyes');
         $appointments->assertDontSee('Other Patient');
         $appointments->assertDontSee('Publish Doctor Availability');
+        $appointments->assertDontSee('Weekly Duty Hours');
+        $appointments->assertDontSee('Additional Published Availability');
+
+        $physician = 'Dr. Marciano Fidel L. Avendaño';
+        $offDuty = now()->next(\Carbon\Carbon::SUNDAY)->setTime(14, 0, 0)->format('Y-m-d H:i:s');
+        $onDuty = now()->next(\Carbon\Carbon::THURSDAY)->setTime(14, 0, 0)->format('Y-m-d H:i:s');
 
         $this->actingAs($user)->post('/appointments', [
             'PATIENT_ID' => '9999999999',
             'PATIENT_NAME' => 'Someone Else',
             'APPOINTMENT_TYPE' => 'Routine Checkup',
             'APPOINTMENT_REASON' => 'Annual check-up',
-            'ATTENDING_PHYSICIAN' => 'Dr. Cruz',
-            'SCHEDULED_AT' => now()->addDays(2)->format('Y-m-d H:i:s'),
+            'ATTENDING_PHYSICIAN' => $physician,
+            'SCHEDULED_AT' => $offDuty,
+        ])->assertSessionHasErrors('SCHEDULED_AT');
+
+        $this->actingAs($user)->post('/appointments', [
+            'PATIENT_ID' => '9999999999',
+            'PATIENT_NAME' => 'Someone Else',
+            'APPOINTMENT_TYPE' => 'Routine Checkup',
+            'APPOINTMENT_REASON' => 'Annual check-up',
+            'ATTENDING_PHYSICIAN' => $physician,
+            'SCHEDULED_AT' => $onDuty,
         ])->assertRedirect('/appointments');
 
         $this->assertDatabaseHas('appointments', [
@@ -143,6 +161,7 @@ class ClinicPortalTest extends TestCase
             'BRAND_NAME' => 'Biogesic',
             'ITEM_CATEGORY' => 'Medicine',
             'ITEM_QUANTITY' => 3,
+            'target_stock' => 100,
             'ITEM_EXPIRATION_DATE' => now()->addMonth()->toDateString(),
         ]);
 
@@ -156,7 +175,7 @@ class ClinicPortalTest extends TestCase
         $dashboard->assertSee('Paracetamol');
         $dashboard->assertSee('Next Patient');
         $dashboard->assertSee('Toggle Treatment-First Mode');
-        $dashboard->assertSee('Notify Logistics');
+        $dashboard->assertDontSee('Notify Logistics');
         $dashboard->assertSee('Inventory');
         $dashboard->assertSee('Medical Records');
         $dashboard->assertSee('Analytics');
@@ -168,8 +187,20 @@ class ClinicPortalTest extends TestCase
         $dashboard->assertDontSee('Visit History');
         $dashboard->assertDontSee('Welcome, Mina');
 
-        $this->actingAs($user)->get('/inventory')->assertOk();
-        $this->actingAs($user)->get('/medical-records')->assertOk();
+        $this->actingAs($user)->get('/inventory')
+            ->assertOk()
+            ->assertDontSee('e.g., 500mg')
+            ->assertSee('Amount only')
+            ->assertSee('First Aid Kit')
+            ->assertDontSee('value="First Aid"')
+            ->assertSee('Notify Logistics')
+            ->assertSee('Paracetamol');
+        $this->actingAs($user)->post(route('inventory.notify-logistics'))->assertRedirect('/inventory');
+        $this->actingAs($user)->post(route('inventory.notify-logistics'))->assertRedirect('/inventory');
+        $this->assertSame(1, \App\Models\LowStockReport::query()->count());
+        $this->actingAs($user)->get('/inventory')->assertSee('Low stock report')->assertSee('Paracetamol');
+        $this->actingAs($user)->get('/medical-records')->assertOk()->assertSee('Patient name')->assertSee('Ana Cruz');
+        $this->actingAs($user)->get('/users')->assertForbidden();
         $this->actingAs($user)->get('/records')->assertOk();
         $this->actingAs($user)->get('/analytics')->assertOk();
 
@@ -198,7 +229,61 @@ class ClinicPortalTest extends TestCase
         $dashboard = $this->actingAs($user)->get('/dashboard');
         $dashboard->assertSee('APC Clinic Operations Dashboard');
         $dashboard->assertSee('All inventory stock levels are normal.');
-        $this->actingAs($user)->get('/inventory')->assertOk();
+        $this->actingAs($user)->get('/inventory')->assertOk()->assertSee('Notify Logistics');
+        $this->actingAs($user)->get('/users')->assertOk()->assertSee('Edit User Account');
+    }
+
+    public function test_a_long_low_stock_list_opens_from_a_menu_and_matches_inventory(): void
+    {
+        $user = $this->signIn('Medical Staff', 'mina.stock@apc.edu.ph', 'Mina', 'Reyes', 'EMP-304', 'Nurse');
+        $names = ['Paracetamol', 'Loratadine', 'Stethoscope', 'Ascorbic Acid'];
+
+        foreach ($names as $index => $name) {
+            Inventory::create([
+                'ITEM_CODE' => 5101 + $index,
+                'GENERIC_NAME' => $name,
+                'ITEM_CATEGORY' => 'Medicine',
+                'ITEM_FORM' => 'Capsule',
+                'ITEM_QUANTITY' => 3 + $index,
+                'target_stock' => 100,
+                'ITEM_EXPIRATION_DATE' => now()->addYear()->toDateString(),
+            ]);
+        }
+
+        $dashboard = $this->actingAs($user)->get('/dashboard');
+        $dashboard->assertOk()->assertSee('View items')->assertDontSee('Notify Logistics');
+        foreach ($names as $name) {
+            $dashboard->assertSee($name);
+        }
+
+        $inventory = $this->actingAs($user)->get('/inventory');
+        $inventory->assertOk()->assertSee('Low stock report')->assertSee('Notify Logistics');
+        foreach ($names as $name) {
+            $inventory->assertSee($name);
+        }
+    }
+
+    public function test_only_itro_admins_and_developers_can_edit_profiles(): void
+    {
+        $student = $this->signIn('Student', 'ana.profile@apc.edu.ph', 'Ana', 'Cruz', '2024100096');
+        $this->actingAs($student)->get('/profile')->assertOk()->assertDontSee('Open Accounts')->assertDontSee('Save Account');
+        $this->actingAs($student)->get('/users')->assertForbidden();
+        $this->actingAs($student)->put('/users/'.$student->id, [])->assertForbidden();
+
+        $nurse = $this->signIn('Medical Staff', 'nurse.profile@apc.edu.ph', 'Nora', 'Reyes', 'EMP-77', 'Nurse');
+        $this->actingAs($nurse)->get('/users')->assertForbidden();
+
+        foreach ([
+            'jaalba@student.apc.edu.ph',
+            'jerichoalba8@gmail.com',
+            'csdeguzman@student.apc.edu.ph',
+            'madsoncha@gmail.com',
+            'lccruz@student.apc.edu.ph',
+            'latrellallencruz2314@gmail.com',
+        ] as $index => $email) {
+            $developer = $this->signIn('Student', $email, 'Dev', 'User', '2024101'.str_pad((string) $index, 3, '0', STR_PAD_LEFT));
+            $this->actingAs($developer)->get('/users')->assertOk()->assertSee('Accounts');
+        }
     }
 
     public function test_new_records_increment_and_existing_ids_stay_put(): void
@@ -219,6 +304,8 @@ class ClinicPortalTest extends TestCase
             'GENERIC_NAME' => 'Ibuprofen',
             'BRAND_NAME' => 'Advil',
             'ITEM_DOSAGE' => '200mg',
+            'ITEM_UNIT' => 'Milligram (mg)',
+            'ITEM_FORM' => 'Capsule',
             'ITEM_CATEGORY' => 'Medicine',
             'ITEM_QUANTITY' => 20,
             'ITEM_EXPIRATION_DATE' => now()->addYear()->toDateString(),
@@ -235,6 +322,8 @@ class ClinicPortalTest extends TestCase
             'GENERIC_NAME' => 'Ibuprofen',
             'BRAND_NAME' => 'Advil',
             'ITEM_DOSAGE' => '400mg',
+            'ITEM_UNIT' => 'Milligram (mg)',
+            'ITEM_FORM' => 'Capsule',
             'ITEM_CATEGORY' => 'Medicine',
             'ITEM_QUANTITY' => 40,
             'ITEM_EXPIRATION_DATE' => now()->addYear()->toDateString(),
@@ -263,8 +352,8 @@ class ClinicPortalTest extends TestCase
             'PATIENT_NAME' => 'Ana Cruz',
             'APPOINTMENT_TYPE' => 'Routine Checkup',
             'APPOINTMENT_REASON' => 'Updated reason',
-            'ATTENDING_PHYSICIAN' => 'Mina Reyes',
-            'SCHEDULED_AT' => now()->addDays(3)->format('Y-m-d H:i:s'),
+            'ATTENDING_PHYSICIAN' => 'Dr. Marciano Fidel L. Avendaño',
+            'SCHEDULED_AT' => now()->next(\Carbon\Carbon::THURSDAY)->setTime(15, 0, 0)->format('Y-m-d H:i:s'),
             'STATUS' => 'In Consultation',
         ])->assertOk();
 
@@ -273,17 +362,129 @@ class ClinicPortalTest extends TestCase
         $this->assertSame('2024100888', (string) $updated->PATIENT_ID);
         $this->assertSame('Routine Checkup', $updated->APPOINTMENT_TYPE);
         $this->assertSame('Updated reason', $updated->APPOINTMENT_REASON);
-        $this->assertSame('Mina Reyes', $updated->ATTENDING_PHYSICIAN);
+        $this->assertSame('Dr. Marciano Fidel L. Avendaño', $updated->ATTENDING_PHYSICIAN);
         $this->assertSame('In Consultation', $updated->STATUS);
         $this->assertNull(Appointment::find(99999));
 
         $page = $this->actingAs($user)->get('/appointments');
         $page->assertOk();
         $page->assertSee('Select attending physician');
-        $page->assertSee('Mina Reyes');
+        $page->assertSee('Updated reason');
         $page->assertSee('Select Doctor / Attending Physician');
         $page->assertSee('Dr. Marciano Fidel L. Avendaño - Doctor');
         $page->assertSee('value="'.Appointment::nextPatientId().'"', false);
+    }
+
+    public function test_new_inventory_items_keep_only_the_fields_for_their_category(): void
+    {
+        $user = $this->signIn('Medical Staff', 'mina.items@apc.edu.ph', 'Mina', 'Reyes', 'EMP-302', 'Nurse');
+
+        $this->actingAs($user)->post('/inventory', [
+            'GENERIC_NAME' => 'Ibuprofen',
+            'ITEM_CATEGORY' => 'Medicine',
+            'ITEM_FORM' => 'Capsule',
+            'ITEM_QUANTITY' => 5,
+        ])->assertSessionHasErrors(['ITEM_DOSAGE', 'ITEM_UNIT', 'ITEM_EXPIRATION_DATE']);
+
+        $this->actingAs($user)->post('/inventory', [
+            'GENERIC_NAME' => 'Blood pressure monitor',
+            'BRAND_NAME' => 'Omron',
+            'ITEM_CATEGORY' => 'Equipment',
+            'ITEM_FORM' => 'Injection',
+            'ITEM_DOSAGE' => '500',
+            'ITEM_UNIT' => 'Milligram (mg)',
+            'ITEM_QUANTITY' => 2,
+            'ITEM_EXPIRATION_DATE' => now()->addYear()->toDateString(),
+        ])->assertSessionHasErrors('ITEM_FORM');
+
+        $this->actingAs($user)->post('/inventory', [
+            'GENERIC_NAME' => 'Blood pressure monitor',
+            'BRAND_NAME' => 'Omron',
+            'ITEM_CATEGORY' => 'Equipment',
+            'ITEM_FORM' => 'Device',
+            'ITEM_DOSAGE' => '500',
+            'ITEM_UNIT' => 'Milligram (mg)',
+            'ITEM_QUANTITY' => 2,
+            'ITEM_EXPIRATION_DATE' => now()->addYear()->toDateString(),
+        ])->assertRedirect('/inventory');
+
+        $this->assertDatabaseHas('inventory', [
+            'GENERIC_NAME' => 'Blood pressure monitor',
+            'ITEM_CATEGORY' => 'Equipment',
+            'ITEM_FORM' => 'Device',
+            'ITEM_DOSAGE' => null,
+            'ITEM_UNIT' => null,
+            'ITEM_EXPIRATION_DATE' => null,
+        ]);
+
+        $this->actingAs($user)->post('/inventory', [
+            'GENERIC_NAME' => 'Gauze',
+            'ITEM_CATEGORY' => 'Medical Supply',
+            'ITEM_FORM' => 'Cream',
+            'ITEM_QUANTITY' => 12,
+        ])->assertSessionHasErrors('ITEM_FORM');
+
+        $supplyDate = now()->addYear()->toDateString();
+        $this->actingAs($user)->post('/inventory', [
+            'GENERIC_NAME' => 'Gauze',
+            'ITEM_CATEGORY' => 'Medical Supply',
+            'ITEM_FORM' => 'Box',
+            'ITEM_QUANTITY' => 12,
+            'ITEM_EXPIRATION_DATE' => $supplyDate,
+        ])->assertRedirect('/inventory');
+
+        $this->assertDatabaseHas('inventory', [
+            'GENERIC_NAME' => 'Gauze',
+            'ITEM_CATEGORY' => 'Medical Supply',
+            'ITEM_FORM' => 'Box',
+            'ITEM_EXPIRATION_DATE' => $supplyDate,
+        ]);
+
+        $this->actingAs($user)->post('/inventory', [
+            'GENERIC_NAME' => 'Clinic kit',
+            'ITEM_CATEGORY' => 'First Aid Kit',
+            'ITEM_FORM' => 'Kit',
+            'ITEM_QUANTITY' => 3,
+        ])->assertRedirect('/inventory');
+
+        $this->assertDatabaseHas('inventory', [
+            'GENERIC_NAME' => 'Clinic kit',
+            'ITEM_CATEGORY' => 'First Aid Kit',
+            'ITEM_DOSAGE' => null,
+            'ITEM_EXPIRATION_DATE' => null,
+        ]);
+    }
+
+    public function test_staff_can_delete_an_inventory_item(): void
+    {
+        $staff = $this->signIn('Medical Staff', 'mina.delete@apc.edu.ph', 'Mina', 'Reyes', 'EMP-303', 'Nurse');
+        $item = Inventory::create([
+            'ITEM_CODE' => 4401,
+            'GENERIC_NAME' => 'Spare gauze',
+            'ITEM_CATEGORY' => 'Medical Supply',
+            'ITEM_FORM' => 'Box',
+            'ITEM_QUANTITY' => 2,
+        ]);
+
+        $page = $this->actingAs($staff)->get('/inventory');
+        $page->assertOk();
+        $page->assertSee('Delete');
+        $page->assertSee('Spare gauze');
+
+        $this->actingAs($staff)->delete('/inventory/'.$item->ITEM_CODE)->assertRedirect('/inventory');
+        $this->assertDatabaseMissing('inventory', ['ITEM_CODE' => 4401]);
+
+        $this->app->forgetInstance(\App\Support\ClinicAccess::class);
+        $student = $this->signIn('Student', 'ana.delete@apc.edu.ph', 'Ana', 'Cruz', '2024100441');
+        Inventory::create([
+            'ITEM_CODE' => 4402,
+            'GENERIC_NAME' => 'Kept gauze',
+            'ITEM_CATEGORY' => 'Medical Supply',
+            'ITEM_FORM' => 'Box',
+            'ITEM_QUANTITY' => 2,
+        ]);
+        $this->actingAs($student)->delete('/inventory/4402')->assertRedirect(route('dashboard'));
+        $this->assertDatabaseHas('inventory', ['ITEM_CODE' => 4402]);
     }
 
     public function test_weekly_duty_grid_follows_appointments_and_duty_days(): void
@@ -445,6 +646,7 @@ class ClinicPortalTest extends TestCase
             'BRAND_NAME' => 'Biogesic',
             'ITEM_CATEGORY' => 'Medicine',
             'ITEM_QUANTITY' => 3,
+            'target_stock' => 100,
             'ITEM_EXPIRATION_DATE' => now()->addMonth()->toDateString(),
         ]);
         Inventory::create([
@@ -453,6 +655,7 @@ class ClinicPortalTest extends TestCase
             'BRAND_NAME' => 'Poten Cee',
             'ITEM_CATEGORY' => 'Medicine',
             'ITEM_QUANTITY' => 40,
+            'target_stock' => 100,
             'ITEM_EXPIRATION_DATE' => now()->addMonth()->toDateString(),
         ]);
 
@@ -504,105 +707,136 @@ class ClinicPortalTest extends TestCase
         $clinical->assertJsonPath('reply', 'RAMsey is an operational assistant and cannot make clinical decisions, diagnose patients, or issue prescriptions. Please perform clinical entries manually.');
     }
 
-    public function test_student_slot_alert_emails_when_a_duty_hour_is_open(): void
+    public function test_only_listed_developers_can_switch_between_student_and_staff_views(): void
     {
-        \Illuminate\Support\Facades\Mail::fake();
-        $user = $this->signIn('Student', 'ana.alert@apc.edu.ph', 'Ana', 'Cruz', '2024100092');
+        $developer = $this->signIn('Student', 'jaalba@student.apc.edu.ph', 'Jericho', 'Alba', '2024100094');
 
-        $closed = $this->actingAs($user)->postJson('/ramsey/remind', [
-            'email' => 'ana.alert@apc.edu.ph',
-            'physician' => 'Dr. Marciano Fidel L. Avendaño',
-            'date' => '2026-10-05',
-        ]);
-        $closed->assertOk();
-        $closed->assertSee('Your alert is saved');
-        \Illuminate\Support\Facades\Mail::assertNothingSent();
-        $this->assertDatabaseHas('schedule_reminders', [
-            'email' => 'ana.alert@apc.edu.ph',
-            'note' => 'slot-watch|Dr. Marciano Fidel L. Avendaño|2026-10-05',
-            'notified_at' => null,
-        ]);
-
-        $open = $this->actingAs($user)->postJson('/ramsey/remind', [
-            'email' => 'ana.alert@apc.edu.ph',
-            'physician' => 'Dr. Marciano Fidel L. Avendaño',
-            'date' => '2026-10-08',
-        ]);
-        $open->assertOk();
-        $open->assertSee('I emailed ana.alert@apc.edu.ph');
-        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\SlotOpenAlert::class, function (\App\Mail\SlotOpenAlert $mail) {
-            return $mail->hasTo('ana.alert@apc.edu.ph')
-                && $mail->physician === 'Dr. Marciano Fidel L. Avendaño';
-        });
-    }
-
-    public function test_cancelling_a_full_duty_day_emails_the_waiting_slot_alert(): void
-    {
-        \Illuminate\Support\Facades\Mail::fake();
-        $student = $this->signIn('Student', 'ana.wait@apc.edu.ph', 'Ana', 'Cruz', '2024100093');
-        $staff = $this->signIn('Medical Staff', 'mina.wait@apc.edu.ph', 'Mina', 'Reyes', 'EMP-911', 'Nurse');
-        $physician = 'Dr. Marciano Fidel L. Avendaño';
-
-        foreach (['14:00:00', '15:00:00', '16:00:00'] as $start) {
-            Appointment::create([
-                'PATIENT_ID' => '2024100108',
-                'PATIENT_NAME' => 'Booked Patient '.$start,
-                'APPOINTMENT_TYPE' => 'Check-up',
-                'APPOINTMENT_REASON' => 'Filled hour',
-                'ATTENDING_PHYSICIAN' => $physician,
-                'SCHEDULED_AT' => '2026-10-08 '.$start,
-                'STATUS' => 'Scheduled',
-            ]);
-        }
-
-        $this->actingAs($student)->postJson('/ramsey/remind', [
-            'email' => 'ana.wait@apc.edu.ph',
-            'physician' => $physician,
-            'date' => '2026-10-08',
-        ])->assertOk()->assertSee('Your alert is saved');
-        \Illuminate\Support\Facades\Mail::assertNothingSent();
-
-        $appointment = Appointment::query()->where('SCHEDULED_AT', '2026-10-08 14:00:00')->firstOrFail();
-        $this->app->forgetInstance(\App\Support\ClinicAccess::class);
-        $this->actingAs($staff)->post('/duty-slots/cancel', [
-            'practitioner' => $physician,
-            'duty_date' => '2026-10-08',
-            'start' => '14:00:00',
-            'appointment_id' => $appointment->APPOINTMENT_ID,
-            'return_to' => '/appointments',
-        ])->assertRedirect('/appointments');
-
-        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\SlotOpenAlert::class, function (\App\Mail\SlotOpenAlert $mail) {
-            return $mail->hasTo('ana.wait@apc.edu.ph');
-        });
-    }
-
-    public function test_developer_preview_can_switch_ramsey_views_only_when_local(): void
-    {
-        $user = $this->signIn('Student', 'ana.preview@apc.edu.ph', 'Ana', 'Cruz', '2024100094');
-
-        $this->actingAs($user)->postJson('/ramsey/view', ['view' => 'staff'])->assertForbidden();
-
-        $this->app['env'] = 'local';
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
-
-        $staffView = $this->actingAs($user)->postJson('/ramsey/view', ['view' => 'staff']);
+        $staffView = $this->actingAs($developer)->postJson('/ramsey/view', ['view' => 'staff']);
         $staffView->assertOk();
         $staffView->assertJsonPath('staff', true);
         $staffView->assertJsonPath('title', 'RAMsey Clinic Operations Assistant');
 
-        $this->actingAs($user)->postJson('/ramsey/ask', [
+        $this->actingAs($developer)->postJson('/ramsey/ask', [
             'message' => 'Where is the inventory?',
         ])->assertOk()->assertSee('Open Inventory Manager');
+        $this->actingAs($developer)->get('/inventory')->assertOk();
 
-        $studentView = $this->actingAs($user)->postJson('/ramsey/view', ['view' => 'student']);
+        $studentView = $this->actingAs($developer)->postJson('/ramsey/view', ['view' => 'student']);
         $studentView->assertOk();
         $studentView->assertJsonPath('staff', false);
         $studentView->assertJsonPath('title', 'RAMsey Student Health Assistant');
 
-        $this->actingAs($user)->postJson('/ramsey/ask', [
+        $this->actingAs($developer)->postJson('/ramsey/ask', [
             'message' => 'Where is the inventory?',
         ])->assertJsonPath('reply', 'Sorry, this action is restricted to APC Clinic Staff.');
+        $this->actingAs($developer)->get('/inventory')->assertRedirect(route('dashboard'));
+
+        $this->app->forgetInstance(\App\Support\ClinicAccess::class);
+        $this->app['env'] = 'local';
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        $student = $this->signIn('Student', 'ana.preview@apc.edu.ph', 'Ana', 'Cruz', '2024100095');
+        $this->actingAs($student)->postJson('/ramsey/view', ['view' => 'staff'])->assertForbidden();
+        $this->actingAs($student)->get('/inventory')->assertRedirect(route('dashboard'));
+    }
+
+    public function test_login_offers_one_entry_and_hides_role_portals(): void
+    {
+        $page = $this->get('/');
+
+        $page->assertOk();
+        $page->assertSee('Sign In to RAM-CIMS');
+        $page->assertSee('Sign in');
+        $page->assertSee('Forgot password');
+        $page->assertSeeInOrder([
+            'Sign in',
+            'Create an account',
+            'Forgot password',
+            'Continue with Microsoft',
+        ]);
+        $page->assertDontSee('Continue with Google');
+        $page->assertDontSee('Google sign-in is not configured yet');
+        $this->get('/auth/google')->assertNotFound();
+        $this->get('/auth/google/callback')->assertNotFound();
+        $page->assertDontSee('Full name');
+        $page->assertDontSee('Preview student portal');
+        $page->assertDontSee('Preview clinic staff portal');
+        $page->assertDontSee('There is no extra verification code');
+        $page->assertDontSee('new here?');
+        $page->assertDontSee('APC email or Gmail');
+        $page->assertDontSee('name@student.apc.edu.ph');
+
+        $register = $this->get('/register');
+        $register->assertOk();
+        $register->assertSee('Full name');
+        $register->assertSee('Email');
+        $register->assertSee('Password');
+        $register->assertSee('Confirm password');
+        $register->assertDontSee('APC email or Gmail');
+        $register->assertDontSee('name@student.apc.edu.ph');
+    }
+
+    public function test_students_register_with_email_and_password_without_staff_access(): void
+    {
+        $this->post('/register', [
+            'name' => 'Ana Cruz',
+            'email' => 'ana.cruz@student.apc.edu.ph',
+            'password' => 'clinic-pass1',
+            'password_confirmation' => 'clinic-pass1',
+        ])->assertRedirect('/dashboard');
+
+        $this->get('/dashboard')->assertSee('Welcome, Ana')->assertDontSee('View as');
+        $this->get('/inventory')->assertRedirect(route('dashboard'));
+        $this->post('/portal/view', ['view' => 'staff'])->assertForbidden();
+    }
+
+    public function test_listed_clinic_emails_open_only_the_staff_portal(): void
+    {
+        $this->post('/register', [
+            'name' => 'Ana Mae Torre',
+            'email' => 'anamaet@apc.edu.ph',
+            'password' => 'clinic-pass1',
+            'password_confirmation' => 'clinic-pass1',
+        ])->assertRedirect('/dashboard');
+
+        $this->get('/dashboard')->assertSee('APC Clinic Operations Dashboard')->assertDontSee('View as');
+        $this->post('/portal/view', ['view' => 'student'])->assertForbidden();
+
+        $this->post('/logout');
+        $this->post('/register', [
+            'name' => 'Maria Magpantay',
+            'email' => 'mariam@apc.edu.ph',
+            'password' => 'clinic-pass1',
+            'password_confirmation' => 'clinic-pass1',
+        ])->assertRedirect('/dashboard');
+        $this->get('/inventory')->assertOk();
+    }
+
+    public function test_other_email_domains_cannot_register(): void
+    {
+        $this->post('/register', [
+            'name' => 'Outsider',
+            'email' => 'outsider@yahoo.com',
+            'password' => 'clinic-pass1',
+            'password_confirmation' => 'clinic-pass1',
+        ])->assertSessionHasErrors('email');
+    }
+
+    public function test_grant_list_covers_the_named_accounts(): void
+    {
+        foreach ([
+            'jaalba@student.apc.edu.ph',
+            'jerichoalba8@gmail.com',
+            'csdeguzman@student.apc.edu.ph',
+            'madsoncha@gmail.com',
+            'lccruz@student.apc.edu.ph',
+            'latrellallencruz2314@gmail.com',
+        ] as $email) {
+            $this->assertTrue(\App\Support\PortalGrant::isDualView($email));
+        }
+
+        $this->assertTrue(\App\Support\PortalGrant::isStaffOnly('anamaet@apc.edu.ph'));
+        $this->assertTrue(\App\Support\PortalGrant::isStaffOnly('mariam@apc.edu.ph'));
+        $this->assertFalse(\App\Support\PortalGrant::allowsEmail('person@yahoo.com'));
     }
 
     public function test_staff_can_view_and_download_the_analytics_pdf(): void

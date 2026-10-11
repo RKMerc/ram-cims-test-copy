@@ -4,10 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Support\ClinicAccess;
-use App\Support\DeveloperMode;
 use App\Support\DutyBoard;
-use App\Support\ScheduleAlerts;
-use Carbon\Carbon;
+use App\Support\PortalGrant;
 use Illuminate\Http\Request;
 
 class DutySlotController extends Controller
@@ -71,17 +69,13 @@ class DutySlotController extends Controller
         }
 
         $appointment->update(['STATUS' => 'Cancelled']);
-        ScheduleAlerts::release(
-            (string) $appointment->ATTENDING_PHYSICIAN,
-            Carbon::parse($appointment->SCHEDULED_AT)->toDateString()
-        );
 
         return $this->back($request)->with('success', 'The visit for '.$appointment->PATIENT_NAME.' was cancelled. That hour is open again.');
     }
 
     public function toggle(Request $request)
     {
-        abort_unless(DeveloperMode::enabled(), 403, 'Slot status can be toggled in developer mode.');
+        abort_unless(PortalGrant::isDualView($request->user()?->email), 403, 'Slot status can be changed by the clinic development team.');
 
         $data = $this->validated($request);
         $slot = $this->board->findSlot($data['practitioner'], $data['duty_date'], $data['start']);
@@ -98,7 +92,7 @@ class DutySlotController extends Controller
 
     public function assign(Request $request)
     {
-        abort_unless(DeveloperMode::enabled() || $this->access->isStaff(), 403);
+        abort_unless($this->access->isStaff(), 403);
 
         $data = $this->validated($request);
         $request->validate([
@@ -115,14 +109,13 @@ class DutySlotController extends Controller
         }
 
         if ($request->boolean('clear')) {
-            abort_unless(DeveloperMode::enabled(), 403);
+            abort_unless(PortalGrant::isDualView($request->user()?->email), 403);
             $this->board->clearAppointments($data['practitioner'], $data['duty_date'], $data['start']);
-            ScheduleAlerts::release($data['practitioner'], $data['duty_date']);
 
             return $this->back($request)->with('success', 'Appointment cleared from this slot.');
         }
 
-        if (! DeveloperMode::enabled() && ! $slot['appointment_id']) {
+        if (! $slot['appointment_id']) {
             return $this->back($request)->with('error', 'That slot has no appointment to edit.');
         }
 
