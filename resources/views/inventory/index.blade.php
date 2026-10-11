@@ -35,6 +35,18 @@
             @include('partials.low-stock-table', ['items' => $lowStockItems ?? collect()])
         </div>
 
+        @if(($configurationItems ?? collect())->isNotEmpty())
+            <div class="alert alert-warning">
+                <div class="fw-semibold">Configuration required</div>
+                <p class="mb-2">These percentage thresholds need a target stock. No target was invented for them.</p>
+                <ul class="mb-0">
+                    @foreach($configurationItems as $item)
+                        <li>{{ $item->GENERIC_NAME }} ({{ $item->ITEM_CATEGORY }})</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         <div class="card shadow-sm">
             <div class="card-body p-0">
                 <table class="table table-hover table-striped mb-0 align-middle">
@@ -60,8 +72,10 @@
                                 <td>{{ trim(($item->ITEM_DOSAGE ?: '').' '.($item->ITEM_UNIT ?: '')) ?: 'N/A' }}</td>
                                 <td>{{ $item->ITEM_FORM ?: 'N/A' }}</td>
                                 <td><span class="fw-semibold text-secondary">{{ $item->ITEM_CATEGORY }}</span></td>
-                                <td class="fw-bold {{ $item->ITEM_QUANTITY < 10 ? 'text-danger' : 'text-success' }}">
+                                @php $stockStatus = $item->stockAssessment()['status']; @endphp
+                                <td class="fw-bold {{ $stockStatus === 'NORMAL' ? 'text-success' : 'text-danger' }}">
                                     {{ $item->ITEM_QUANTITY }} pcs
+                                    <div class="small fw-semibold">{{ $stockStatus }}</div>
                                 </td>
                                 <td>{{ $item->ITEM_EXPIRATION_DATE ? \Carbon\Carbon::parse($item->ITEM_EXPIRATION_DATE)->format('Y-M-d') : 'N/A' }}</td>
                                 <td class="text-center text-nowrap">
@@ -77,6 +91,9 @@
                                         data-form="{{ $item->ITEM_FORM }}"
                                         data-category="{{ $item->ITEM_CATEGORY }}"
                                         data-quantity="{{ $item->ITEM_QUANTITY }}"
+                                        data-target="{{ $item->target_stock }}"
+                                        data-minimum="{{ $item->minimum_stock }}"
+                                        data-kit="{{ $item->kit_complete === null ? '' : (int) $item->kit_complete }}"
                                         data-expiration="{{ $item->ITEM_EXPIRATION_DATE }}">
                                     Edit
                                     </button>
@@ -156,6 +173,23 @@
                             <label for="ITEM_QUANTITY" class="form-label fw-semibold">Initial Quantity</label>
                             <input type="number" class="form-control" id="ITEM_QUANTITY" name="ITEM_QUANTITY" min="0" placeholder="0" required>
                         </div>
+                        <div class="col-md-6" data-item-group="target" hidden>
+                            <label for="target_stock" class="form-label fw-semibold">Target Stock</label>
+                            <input type="number" class="form-control" id="target_stock" name="target_stock" min="1">
+                            <div class="form-text">Used for the category percentage. Leave blank if it is not known.</div>
+                        </div>
+                        <div class="col-md-6" data-item-group="threshold" hidden>
+                            <label for="minimum_stock" class="form-label fw-semibold">Custom Threshold (Optional)</label>
+                            <input type="number" class="form-control" id="minimum_stock" name="minimum_stock" min="0">
+                            <div class="form-text">Overrides the category default for this item only.</div>
+                        </div>
+                        <div class="col-12" data-item-group="kit" hidden>
+                            <input type="hidden" name="kit_complete" value="0">
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="kit_complete" name="kit_complete" value="1" checked>
+                                <label class="form-check-label" for="kit_complete">Count this quantity as complete kits</label>
+                            </div>
+                        </div>
                         <div class="col-md-6" data-item-group="expiration" hidden>
                             <label for="ITEM_EXPIRATION_DATE" class="form-label fw-semibold" data-expiration-label>Expiration Date</label>
                             <input type="date" class="form-control" id="ITEM_EXPIRATION_DATE" name="ITEM_EXPIRATION_DATE">
@@ -220,6 +254,23 @@
                             <label for="edit_ITEM_QUANTITY" class="form-label fw-semibold">Quantity</label>
                             <input type="number" class="form-control" id="edit_ITEM_QUANTITY" name="ITEM_QUANTITY" min="0" required>
                         </div>
+                        <div class="col-md-6" data-item-group="target">
+                            <label for="edit_target_stock" class="form-label fw-semibold">Target Stock</label>
+                            <input type="number" class="form-control" id="edit_target_stock" name="target_stock" min="1">
+                            <div class="form-text">Used for the category percentage. Leave blank if it is not known.</div>
+                        </div>
+                        <div class="col-md-6" data-item-group="threshold">
+                            <label for="edit_minimum_stock" class="form-label fw-semibold">Custom Threshold (Optional)</label>
+                            <input type="number" class="form-control" id="edit_minimum_stock" name="minimum_stock" min="0">
+                            <div class="form-text">Overrides the category default for this item only.</div>
+                        </div>
+                        <div class="col-12" data-item-group="kit">
+                            <input type="hidden" name="kit_complete" value="0">
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="edit_kit_complete" name="kit_complete" value="1">
+                                <label class="form-check-label" for="edit_kit_complete">Count this quantity as complete kits</label>
+                            </div>
+                        </div>
                         <div class="col-md-6" data-item-group="expiration">
                             <label for="edit_ITEM_EXPIRATION_DATE" class="form-label fw-semibold" data-expiration-label>Expiration Date</label>
                             <input type="date" class="form-control" id="edit_ITEM_EXPIRATION_DATE" name="ITEM_EXPIRATION_DATE">
@@ -240,10 +291,10 @@
     <script>
         const itemForms = @json(\App\Models\Inventory::FORMS);
         const itemLayouts = {
-            'Medicine': { show: ['name', 'brand', 'dosage', 'form', 'quantity', 'expiration'], expirationRequired: true },
-            'Equipment': { show: ['name', 'brand', 'form', 'quantity'], expirationRequired: false },
-            'Medical Supply': { show: ['name', 'brand', 'form', 'quantity', 'expiration'], expirationRequired: false },
-            'First Aid Kit': { show: ['name', 'brand', 'form', 'quantity'], expirationRequired: false }
+            'Medicine': { show: ['name', 'brand', 'dosage', 'form', 'quantity', 'target', 'threshold', 'expiration'], expirationRequired: true },
+            'Equipment': { show: ['name', 'brand', 'form', 'quantity', 'threshold'], expirationRequired: false },
+            'Medical Supply': { show: ['name', 'brand', 'form', 'quantity', 'target', 'threshold', 'expiration'], expirationRequired: false },
+            'First Aid Kit': { show: ['name', 'brand', 'form', 'quantity', 'threshold', 'kit'], expirationRequired: false }
         };
 
         function setFormOptions(select, options, current) {
@@ -339,6 +390,9 @@
                     formSelect.value = form;
                     document.getElementById('edit_ITEM_CATEGORY').value = category === 'First Aid' ? 'First Aid Kit' : category;
                     document.getElementById('edit_ITEM_QUANTITY').value = quantity;
+                    document.getElementById('edit_target_stock').value = button.getAttribute('data-target') || '';
+                    document.getElementById('edit_minimum_stock').value = button.getAttribute('data-minimum') || '';
+                    document.getElementById('edit_kit_complete').checked = button.getAttribute('data-kit') !== '0';
 
                     // Format date for <input type="date"> (YYYY-MM-DD)
                     if (expiration) {

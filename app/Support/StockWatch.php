@@ -14,14 +14,13 @@ class StockWatch
 {
     public function sync(Inventory $item): void
     {
-        $quantity = (int) $item->ITEM_QUANTITY;
-        $threshold = $item->stockThreshold();
+        $assessment = $item->stockAssessment();
         $active = StockAlert::query()
             ->where('item_code', $item->ITEM_CODE)
             ->whereNull('resolved_at')
             ->first();
 
-        if ($quantity > $threshold) {
+        if (in_array($assessment['status'], ['NORMAL', 'CONFIGURATION REQUIRED'], true)) {
             if ($active) {
                 $active->forceFill(['resolved_at' => now()])->save();
             }
@@ -29,7 +28,7 @@ class StockWatch
             return;
         }
 
-        $status = $quantity === 0 ? 'out' : 'low';
+        $status = $assessment['status'] === 'OUT OF STOCK' ? 'out' : 'low';
         if ($active && $active->status === $status) {
             return;
         }
@@ -58,7 +57,8 @@ class StockWatch
 
         foreach ($due as $alert) {
             $item = Inventory::query()->where('ITEM_CODE', $alert->item_code)->first();
-            if (! $item || (int) $item->ITEM_QUANTITY > $item->stockThreshold()) {
+            $assessment = $item?->stockAssessment();
+            if (! $item || in_array($assessment['status'] ?? 'NORMAL', ['NORMAL', 'CONFIGURATION REQUIRED'], true)) {
                 $alert->forceFill(['resolved_at' => now()])->save();
                 continue;
             }
@@ -75,7 +75,9 @@ class StockWatch
     {
         $status = $alert->status === 'out' ? 'Out of Stock' : 'Low Stock';
         $title = $reminder ? 'Low-stock reminder: '.$item->GENERIC_NAME : 'Inventory alert: '.$item->GENERIC_NAME;
-        $body = $item->GENERIC_NAME.' has '.$item->ITEM_QUANTITY.' on hand. The minimum is '.$item->stockThreshold().'. Status: '.$status.'.';
+        $threshold = $item->stockThreshold();
+        $minimum = $threshold === null ? 'Configuration required' : (string) $threshold;
+        $body = $item->GENERIC_NAME.' has '.$item->ITEM_QUANTITY.' on hand. The minimum is '.$minimum.'. Status: '.$status.'.';
 
         ClinicNotification::create([
             'item_code' => $item->ITEM_CODE,

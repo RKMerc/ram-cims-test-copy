@@ -161,6 +161,7 @@ class ClinicPortalTest extends TestCase
             'BRAND_NAME' => 'Biogesic',
             'ITEM_CATEGORY' => 'Medicine',
             'ITEM_QUANTITY' => 3,
+            'target_stock' => 100,
             'ITEM_EXPIRATION_DATE' => now()->addMonth()->toDateString(),
         ]);
 
@@ -244,6 +245,7 @@ class ClinicPortalTest extends TestCase
                 'ITEM_CATEGORY' => 'Medicine',
                 'ITEM_FORM' => 'Capsule',
                 'ITEM_QUANTITY' => 3 + $index,
+                'target_stock' => 100,
                 'ITEM_EXPIRATION_DATE' => now()->addYear()->toDateString(),
             ]);
         }
@@ -644,6 +646,7 @@ class ClinicPortalTest extends TestCase
             'BRAND_NAME' => 'Biogesic',
             'ITEM_CATEGORY' => 'Medicine',
             'ITEM_QUANTITY' => 3,
+            'target_stock' => 100,
             'ITEM_EXPIRATION_DATE' => now()->addMonth()->toDateString(),
         ]);
         Inventory::create([
@@ -652,6 +655,7 @@ class ClinicPortalTest extends TestCase
             'BRAND_NAME' => 'Poten Cee',
             'ITEM_CATEGORY' => 'Medicine',
             'ITEM_QUANTITY' => 40,
+            'target_stock' => 100,
             'ITEM_EXPIRATION_DATE' => now()->addMonth()->toDateString(),
         ]);
 

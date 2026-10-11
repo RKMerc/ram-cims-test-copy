@@ -8,4 +8,4 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('clinic:stock-reminders')->daily();
+Schedule::command('clinic:stock-reminders')->everyFifteenMinutes()->withoutOverlapping();

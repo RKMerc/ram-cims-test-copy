@@ -16,8 +16,6 @@ use Illuminate\Http\Request;
 
 class RamseyController extends Controller
 {
-    private const LOW_STOCK_AT = 10;
-
     public function __construct(private RamseyPersona $persona, private DutyBoard $board)
     {
     }
@@ -139,13 +137,7 @@ class RamseyController extends Controller
             ]);
         }
 
-        return $this->reply(
-            'I can schedule a check-up, show your latest visit, or list prescriptions on your chart.',
-            [
-                ['label' => 'Schedule Check-Up', 'href' => '/appointments'],
-                ['label' => 'Visit history', 'href' => '/visit-history'],
-            ]
-        );
+        return $this->reply('Sorry, hindi ko naintindihan ang message mo. Maaari mo bang linawin?');
     }
 
     private function staffKeywords(string $message)
@@ -191,10 +183,7 @@ class RamseyController extends Controller
             ]);
         }
 
-        return $this->reply($this->persona->description(), [
-            ['label' => 'Open the queue', 'href' => '/dashboard'],
-            ['label' => 'Open Inventory Manager', 'href' => '/inventory'],
-        ]);
+        return $this->reply('Sorry, hindi ko naintindihan ang message mo. Maaari mo bang linawin?');
     }
 
     private function checkUpReply()
@@ -290,11 +279,7 @@ class RamseyController extends Controller
 
     private function lowStockReply()
     {
-        $items = Inventory::query()
-            ->where('ITEM_QUANTITY', '<=', self::LOW_STOCK_AT)
-            ->orderBy('ITEM_QUANTITY')
-            ->orderBy('GENERIC_NAME')
-            ->get();
+        $items = Inventory::lowStockItems();
 
         if ($items->isEmpty()) {
             return $this->reply('All inventory stock levels are normal.', [
@@ -310,7 +295,7 @@ class RamseyController extends Controller
         })->implode("\n");
 
         $extra = $items->count() - $shown->count();
-        $reply = $items->count().' item'.($items->count() === 1 ? '' : 's').' at or below the minimum threshold of '.self::LOW_STOCK_AT.":\n".$lines;
+        $reply = $items->count().' item'.($items->count() === 1 ? '' : 's')." at or below its stock threshold:\n".$lines;
 
         if ($extra > 0) {
             $reply .= "\n".$extra.' more in the inventory manager.';
@@ -419,7 +404,7 @@ class RamseyController extends Controller
         $appointments = Appointment::query()->whereDate('SCHEDULED_AT', $day)->count();
         $queued = Appointment::query()->whereDate('SCHEDULED_AT', $day)->queued()->count();
         $visits = MedicalRecord::query()->whereDate('MEDREC_CONSUL_DATE', $day)->count();
-        $low = Inventory::query()->where('ITEM_QUANTITY', '<=', self::LOW_STOCK_AT)->count();
+        $low = Inventory::lowStockItems()->count();
 
         $reply = "Clinic visit report for {$label}:\n"
             ."Appointments: {$appointments}\n"

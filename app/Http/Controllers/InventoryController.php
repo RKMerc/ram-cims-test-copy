@@ -16,9 +16,10 @@ class InventoryController extends Controller
         $supplies = Inventory::query()->orderBy('ITEM_CODE')->get();
         $nextItemCode = Inventory::nextItemCode();
         $lowStockItems = Inventory::lowStockItems();
+        $configurationItems = Inventory::configurationRequiredItems();
         $lowStockReport = LowStockReport::query()->latest()->first();
 
-        return view('inventory.index', compact('supplies', 'nextItemCode', 'lowStockItems', 'lowStockReport'));
+        return view('inventory.index', compact('supplies', 'nextItemCode', 'lowStockItems', 'configurationItems', 'lowStockReport'));
     }
 
     public function notifyLogistics()
@@ -114,6 +115,9 @@ class InventoryController extends Controller
             'ITEM_FORM' => ['required', 'string', Rule::in(Inventory::FORMS[$category] ?? [])],
             'ITEM_CATEGORY' => ['required', 'string', Rule::in(array_keys(Inventory::FORMS))],
             'ITEM_QUANTITY' => 'required|integer|min:0',
+            'target_stock' => 'nullable|integer|min:1',
+            'minimum_stock' => 'nullable|integer|min:0',
+            'kit_complete' => 'nullable|boolean',
             'ITEM_EXPIRATION_DATE' => [$category === 'Medicine' ? 'required' : 'nullable', 'date'],
         ]);
 
@@ -124,6 +128,16 @@ class InventoryController extends Controller
 
         if (! $tracksExpiration) {
             $validated['ITEM_EXPIRATION_DATE'] = null;
+        }
+
+        if (! in_array($category, ['Medicine', 'Medical Supply'], true)) {
+            $validated['target_stock'] = null;
+        }
+
+        if ($category === 'First Aid Kit') {
+            $validated['kit_complete'] = $request->boolean('kit_complete');
+        } else {
+            $validated['kit_complete'] = null;
         }
 
         return $validated;

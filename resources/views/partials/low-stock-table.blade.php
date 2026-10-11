@@ -26,7 +26,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7" class="text-center py-4 text-muted">All inventory stock levels are normal.</td>
+                    <td colspan="7" class="text-center py-4 text-muted">{{ $empty ?? 'All inventory stock levels are normal.' }}</td>
                 </tr>
             @endforelse
         </tbody>

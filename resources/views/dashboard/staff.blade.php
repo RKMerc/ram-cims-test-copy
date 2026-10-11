@@ -32,8 +32,10 @@
             <div class="card-body">
                 <h6 class="text-muted fw-semibold text-uppercase mb-2" style="font-size:.78rem; letter-spacing:.04em;">Low Stock Alert</h6>
                 <h2 class="fw-bold mb-2" style="color:#003B7A;">{{ ($lowStockItems ?? collect())->count() }}</h2>
-                @if(($lowStockItems ?? collect())->isEmpty())
+                @if(($lowStockItems ?? collect())->isEmpty() && ($configurationItems ?? collect())->isEmpty())
                     <p class="text-muted mb-0">All inventory stock levels are normal.</p>
+                @elseif(($lowStockItems ?? collect())->isEmpty())
+                    <p class="text-muted mb-0">{{ $configurationItems->count() }} item{{ $configurationItems->count() === 1 ? '' : 's' }} need a target stock before a percentage threshold can be calculated.</p>
                 @elseif(($lowStockItems ?? collect())->count() > 3)
                     <div class="dropdown">
                         <button class="btn btn-sm btn-outline-danger dropdown-toggle fw-semibold" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -126,5 +128,10 @@
     <div class="card-header bg-white py-3 border-0">
         <h5 class="fw-bold mb-0" style="color:#003B7A;">Low Stock Inventory Alert</h5>
     </div>
-    @include('partials.low-stock-table', ['items' => $lowStockItems ?? collect()])
+    @include('partials.low-stock-table', [
+        'items' => $lowStockItems ?? collect(),
+        'empty' => ($configurationItems ?? collect())->isNotEmpty()
+            ? $configurationItems->count().' item'.($configurationItems->count() === 1 ? '' : 's').' need a target stock. No target was invented.'
+            : null,
+    ])
 </div>

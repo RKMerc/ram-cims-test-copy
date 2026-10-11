@@ -227,26 +227,26 @@ class PanelistRevisionTest extends TestCase
 
         $greeting = $this->actingAs($student)->postJson('/ramsey/ask', ['message' => 'Hi']);
         $greeting->assertOk();
-        $this->assertStringContainsString("I'm RAMsey", $greeting->json('reply'));
+        $this->assertSame('Hello! How can I help you today?', $greeting->json('reply'));
 
         $filipino = $this->actingAs($student)->postJson('/ramsey/ask', ['message' => 'Paano magpa-appointment?']);
-        $this->assertStringContainsString('Appointments section', $filipino->json('reply'));
+        $this->assertStringContainsString('Maaari kang mag-schedule ng appointment', $filipino->json('reply'));
 
         $follow = $this->actingAs($student)->postJson('/ramsey/ask', ['message' => 'Saan ko makikita yun?']);
-        $this->assertStringContainsString('navigation menu', $follow->json('reply'));
+        $this->assertStringContainsString('Makikita mo ang Appointments section', $follow->json('reply'));
 
         $thanks = $this->actingAs($student)->postJson('/ramsey/ask', ['message' => 'Thank you!']);
         $this->assertStringContainsString("You're welcome", $thanks->json('reply'));
 
         $symptom = $this->actingAs($student)->postJson('/ramsey/ask', ['message' => 'Masakit ulo ko.']);
-        $this->assertStringContainsString('cannot diagnose', $symptom->json('reply'));
+        $this->assertStringContainsString('magpakonsulta sa clinic personnel', $symptom->json('reply'));
         $this->assertStringNotContainsString('Paracetamol', $symptom->json('reply'));
 
         $misspelled = $this->actingAs($student)->postJson('/ramsey/ask', ['message' => 'How do I make an apointment?']);
         $this->assertStringContainsString('Appointments section', $misspelled->json('reply'));
 
-        $unknown = $this->actingAs($student)->postJson('/ramsey/ask', ['message' => 'What is the cafeteria menu?']);
-        $this->assertStringNotContainsString('Appointments section', $unknown->json('reply'));
+        $unknown = $this->actingAs($student)->postJson('/ramsey/ask', ['message' => 'adajda']);
+        $this->assertSame('Sorry, hindi ko naintindihan ang message mo. Maaari mo bang linawin?', $unknown->json('reply'));
     }
 
     private function medicine(int $code, int $quantity, string $expiration): array
@@ -260,6 +260,7 @@ class PanelistRevisionTest extends TestCase
             'ITEM_DOSAGE' => '500',
             'ITEM_UNIT' => 'Milligram (mg)',
             'ITEM_QUANTITY' => $quantity,
+            'target_stock' => 50,
             'ITEM_EXPIRATION_DATE' => $expiration,
         ];
     }

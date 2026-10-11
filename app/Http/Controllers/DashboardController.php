@@ -61,6 +61,7 @@ class DashboardController extends Controller
             'patientsQueued' => Appointment::query()->whereDate('SCHEDULED_AT', today())->queued()->count(),
             'queue' => $this->queueQuery($treatmentFirst)->take(8)->get(),
             'lowStockItems' => Inventory::lowStockItems(),
+            'configurationItems' => Inventory::configurationRequiredItems(),
             'treatmentFirst' => $treatmentFirst,
         ];
     }
