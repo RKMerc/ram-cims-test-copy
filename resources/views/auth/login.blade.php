@@ -40,6 +40,12 @@
             <a href="{{ route('password.request') }}" class="btn btn-link py-1">Forgot password</a>
 
             <a href="{{ route('auth.microsoft') }}" class="btn btn-outline-primary py-2 d-flex align-items-center justify-content-center gap-2 fw-semibold">
+        <div class="guest-actions">
+            @if(app()->environment('production'))
+                <a href="{{ route('preview', 'student') }}" class="btn btn-primary py-2 fw-semibold">Preview student portal</a>
+                <a href="{{ route('preview', 'staff') }}" class="btn btn-outline-primary py-2 fw-semibold">Preview clinic staff portal</a>
+            @endif
+            <a href="{{ route('auth.microsoft') }}" class="btn btn-primary py-2 d-flex align-items-center justify-content-center gap-2 fw-semibold">
                 <svg width="20" height="20" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
                     <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>

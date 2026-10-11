@@ -10,6 +10,7 @@ use App\Support\PortalGrant;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 use SocialiteProviders\Microsoft\Provider;
@@ -23,6 +24,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        if ($this->app->environment('production') || config('app.env') === 'production') {
+            URL::forceScheme('https');
+        }
+
         Event::listen(function (SocialiteWasCalled $event) {
             $event->extendSocialite('microsoft', Provider::class);
         });
