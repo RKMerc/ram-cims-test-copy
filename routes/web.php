@@ -29,6 +29,15 @@ Route::get('/email/verify/{id}/{hash}', [LoginController::class, 'verifyEmail'])
 if (app()->environment('local')) {
     Route::get('/preview/{role}', [PreviewController::class, 'enter'])->name('preview');
 }
+Route::get('/', [LoginController::class, 'showLoginForm'])->name('login');
+
+Route::get('/preview/{role}', function ($role) {
+    if (!in_array($role, ['student', 'staff'])) {
+        abort(404);
+    }
+    session(['preview_role' => $role]);
+    return redirect()->route('dashboard');
+})->name('preview');
 
 Route::post('/users', [UserAccountController::class, 'store']);
 

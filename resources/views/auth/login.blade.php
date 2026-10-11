@@ -13,19 +13,19 @@
         <p class="eyebrow mb-2">Asia Pacific College</p>
         <h1 class="h3 fw-bold mb-2">Sign In to RAM-CIMS</h1>
         <p class="text-muted mb-0">Clinic Information Management System</p>
-
+ 
         @if(session('status'))
             <div class="alert alert-success mt-3 mb-0 text-start">{{ session('status') }}</div>
         @endif
-
+ 
         @if(session('error'))
             <div class="alert alert-danger mt-3 mb-0 text-start">{{ session('error') }}</div>
         @endif
-
+ 
         @if($errors->any())
             <div class="alert alert-danger mt-3 mb-0 text-start">{{ $errors->first() }}</div>
         @endif
-
+ 
         <section class="sign-in-panel">
             <form method="POST" action="{{ route('login.attempt') }}" class="sign-in-form text-start" novalidate>
                 @csrf
@@ -35,10 +35,10 @@
                 <input type="password" class="form-control" id="loginPassword" name="password" autocomplete="current-password">
                 <button type="submit" class="btn btn-primary w-100 mt-3 fw-semibold">Sign in</button>
             </form>
-
+ 
             <a href="{{ route('register.show') }}" class="btn btn-outline-primary py-2 fw-semibold">Create an account</a>
             <a href="{{ route('password.request') }}" class="btn btn-link py-1">Forgot password</a>
-
+ 
             <a href="{{ route('auth.microsoft') }}" class="btn btn-outline-primary py-2 d-flex align-items-center justify-content-center gap-2 fw-semibold">
                 <svg width="20" height="20" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
