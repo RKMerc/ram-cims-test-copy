@@ -131,6 +131,8 @@
     .app-links {
         display: flex;
         flex-wrap: wrap;
+        align-items: center;
+        align-content: center;
         gap: 0.25rem;
     }
 
@@ -140,6 +142,9 @@
         font-weight: 600;
         padding: 0.45rem 0.8rem;
         border-radius: 999px;
+        line-height: 1.2;
+        align-self: center;
+        white-space: nowrap;
     }
 
     .modal-content .form-control,
@@ -222,6 +227,8 @@
         font-weight: 600;
         border-radius: 999px;
         padding: 0.45rem 0.8rem;
+        line-height: 1.2;
+        align-self: center;
     }
 
     .app-main {
