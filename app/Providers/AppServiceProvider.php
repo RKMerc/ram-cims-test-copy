@@ -21,6 +21,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        if ($this->app->environment('production') || config('app.env') === 'production') {
+            URL::forceScheme('https');
+        }
+
         Event::listen(function (SocialiteWasCalled $event) {
             $event->extendSocialite('microsoft', Provider::class);
         });
