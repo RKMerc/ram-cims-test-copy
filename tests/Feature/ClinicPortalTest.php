@@ -263,6 +263,36 @@ class ClinicPortalTest extends TestCase
         }
     }
 
+    public function test_dashboard_shows_missing_baselines_as_out_of_stock_with_low_stock(): void
+    {
+        $user = $this->signIn('Medical Staff', 'mina.baseline@apc.edu.ph', 'Mina', 'Reyes', 'EMP-305', 'Nurse');
+
+        Inventory::create([
+            'ITEM_CODE' => 8801,
+            'GENERIC_NAME' => 'Tracked gauze',
+            'ITEM_CATEGORY' => 'Medical Supply',
+            'ITEM_FORM' => 'Box',
+            'ITEM_QUANTITY' => 10,
+            'target_stock' => 100,
+        ]);
+        Inventory::create([
+            'ITEM_CODE' => 8802,
+            'GENERIC_NAME' => 'Untracked cotton',
+            'ITEM_CATEGORY' => 'Medical Supply',
+            'ITEM_FORM' => 'Pack',
+            'ITEM_QUANTITY' => 0,
+            'needs_baseline_review' => true,
+        ]);
+
+        $dashboard = $this->actingAs($user)->get('/dashboard');
+        $dashboard->assertOk();
+        $dashboard->assertSee('Tracked gauze');
+        $dashboard->assertSee('Untracked cotton');
+        $dashboard->assertSee('Out of stock');
+        $dashboard->assertSee('no recorded baseline');
+        $dashboard->assertDontSee('All inventory stock levels are normal.');
+    }
+
     public function test_only_itro_admins_and_developers_can_edit_profiles(): void
     {
         $student = $this->signIn('Student', 'ana.profile@apc.edu.ph', 'Ana', 'Cruz', '2024100096');
@@ -280,6 +310,8 @@ class ClinicPortalTest extends TestCase
             'madsoncha@gmail.com',
             'lccruz@student.apc.edu.ph',
             'latrellallencruz2314@gmail.com',
+            'ramercado3@student.apc.edu.ph',
+            'raf123mercado@gmail.com',
         ] as $index => $email) {
             $developer = $this->signIn('Student', $email, 'Dev', 'User', '2024101'.str_pad((string) $index, 3, '0', STR_PAD_LEFT));
             $this->actingAs($developer)->get('/users')->assertOk()->assertSee('Accounts');
@@ -830,6 +862,8 @@ class ClinicPortalTest extends TestCase
             'madsoncha@gmail.com',
             'lccruz@student.apc.edu.ph',
             'latrellallencruz2314@gmail.com',
+            'ramercado3@student.apc.edu.ph',
+            'raf123mercado@gmail.com',
         ] as $email) {
             $this->assertTrue(\App\Support\PortalGrant::isDualView($email));
         }

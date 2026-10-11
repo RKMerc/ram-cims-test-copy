@@ -67,6 +67,24 @@ class PanelistRevisionTest extends TestCase
         ])->assertSessionHas('status');
     }
 
+    public function test_password_reset_keeps_the_confirmation_and_updates_the_password(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'ana.reset@student.apc.edu.ph',
+            'password' => Hash::make('old-pass1'),
+        ]);
+        $token = \Illuminate\Support\Facades\Password::createToken($user);
+
+        $this->post('/reset-password', [
+            'token' => $token,
+            'email' => 'ana.reset@student.apc.edu.ph',
+            'password' => 'new-pass1',
+            'password_confirmation' => 'new-pass1',
+        ])->assertRedirect(route('login'));
+
+        $this->assertTrue(Hash::check('new-pass1', $user->fresh()->password));
+    }
+
     public function test_dispense_uses_the_quantity_given_and_rejects_invalid_stock(): void
     {
         $nurse = $this->nurse();
