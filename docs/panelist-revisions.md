@@ -2,7 +2,7 @@
 
 This note records what was implemented on the `panelist-revisions` branch. It does not replace the Final Paper or SRS. Those documents are not in this repository.
 
-RAMsey remains a rule-based assistant. It does not call a generative AI API. QR patient identification was not added.
+RAMsey still answers known clinic questions with local rules. A server-side Gemini call is available only for a message those rules do not already answer, and only after a privacy filter. No Gemini API key is configured here, so a live Gemini reply was not tested. QR patient identification was not added. The Final Paper, SRS, system architecture, DFD, and separate privacy packet are not in this repository, so they were not edited.
 
 ## Authentication
 
@@ -36,9 +36,13 @@ Live Gmail delivery was not tested. `.env.example` documents `smtp.gmail.com` po
 
 ## RAMsey
 
-Typed messages and the suggested-question buttons go through the same `/ramsey/ask` path. Conversational replies come from `RamseyDialogue`. Operational shortcuts, such as the duty check and a student's own prescription list, still use the existing clinic replies.
+Typed messages and the suggested-question buttons go through the same `/ramsey/ask` path. The browser posts to that Laravel route only. It does not receive a Gemini API key.
 
-Unknown text such as "adajda" gets "Sorry, hindi ko naintindihan ang message mo. Maaari mo bang linawin?" A help request in Filipino asks what help is needed. Appointment directions stay in Filipino when the question is in Filipino, and "Saan ko makikita yun?" uses that answer only while the appointment topic is still active. The topic expires after 30 minutes and is cleared when the message is not understood. "Masakit ulo ko." is answered with a request to consult clinic personnel. RAMsey does not call a generative AI service.
+RAMsey is a hybrid assistant. `RamseyDialogue` still answers greetings, Filipino and English appointment directions, the 30-minute "Saan ko makikita yun?" follow-up, thanks, symptoms such as "Masakit ulo ko.", record-page directions, and the existing operational shortcuts. Those replies are not sent to Google Gemini. A student's own visit summary and prescription list still come from the Laravel database and are shown only to that signed-in student. Staff queue, inventory, duty, and report shortcuts stay on that same local path.
+
+If the local rules do not recognize a message, `RamseyPrivacy` checks it before any external call. A suspected identifier, diagnosis, dosage, or other health detail is answered locally and is not forwarded. The same is true for a medication recommendation, a prompt-injection attempt, a role spoof, or a request to change records. When `GEMINI_API_KEY` is empty, an unrecognized message still gets "Sorry, hindi ko naintindihan ang message mo. Maaari mo bang linawin?" When the key is set, only the screened message and a fixed navigation prompt are sent. The request has no database tools. The key is an HTTP header, not part of the page. A failed, blocked, or unsafe model reply falls back to a local sentence. Requests are limited per signed-in user.
+
+Gemini is not given medical records, diagnoses, prescriptions, or clinical decisions. It is not authorized to read or disclose them. RAMsey does not provide medical consultations, diagnoses, prescriptions, or clinical decision-making. Provider retention, cross-border transfer, and Philippine Data Privacy Act approval were not reviewed in this pass. Do not turn the key on for live clinic chats until that approval exists.
 
 ## User accounts
 
@@ -61,3 +65,5 @@ The local queue connection is `database`. A failed job remains in `failed_jobs` 
 ## Tests
 
 `php artisan test` was run after the baseline, notification, and mail-template changes: 38 passed, 566 assertions. The mailer is still `log`, so Gmail delivery was not verified. A completed Microsoft sign-in was not run.
+
+After the RAMsey Gemini filter was added, `php artisan test` passed 47 tests and 643 assertions. Gemini was mocked. No live call was made because `GEMINI_API_KEY` is empty. The automated tests cover English, Filipino, and Taglish navigation questions, medication and record refusals, identifier filtering, prompt injection, role spoofing, unauthorized actions, a failed API response, a blocked model response, an unsafe dosage in the model text, rate limiting, and the absence of the API key from the page.

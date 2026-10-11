@@ -13,6 +13,10 @@ class RamseyDialogue
             return $this->unknown();
         }
 
+        if ($this->isMedicalAdvice($message)) {
+            return $this->pack(RamseyPrivacy::MEDICATION_REFUSAL);
+        }
+
         if ($this->isOperationalChip($message) || $this->isOperational($message)) {
             return null;
         }
@@ -145,12 +149,19 @@ class RamseyDialogue
             return $this->pack('I cannot help with that. I can help with clinic services, appointments, and your own visit history.');
         }
 
-        return $this->unknown();
+        return $this->unknown($raw);
     }
 
-    private function unknown(): array
+    private function unknown(?string $raw = null): array
     {
         session()->forget('clinic.ramsey_context');
+
+        if (is_string($raw) && trim($raw) !== '') {
+            $assisted = app(RamseyGemini::class)->complete($raw);
+            if (is_array($assisted) && isset($assisted['reply']) && is_string($assisted['reply']) && $assisted['reply'] !== '') {
+                return $this->pack($assisted['reply'], is_array($assisted['links'] ?? null) ? $assisted['links'] : []);
+            }
+        }
 
         return $this->pack('Sorry, hindi ko naintindihan ang message mo. Maaari mo bang linawin?');
     }
@@ -249,6 +260,16 @@ class RamseyDialogue
     private function isWhere(string $message): bool
     {
         return $this->contains($message, ['saan', 'nasaan', 'where', 'makikita', 'find it', 'find that']);
+    }
+
+    private function isMedicalAdvice(string $message): bool
+    {
+        return $this->contains($message, [
+            'what medicine', 'what medication', 'which medicine', 'which medication',
+            'should i take', 'anong gamot', 'recommend medicine', 'recommend a medicine',
+            'recommend medication', 'recommend a medication', 'what drug', 'gamot para',
+            'gamot ang', 'medicine for my', 'medication for my',
+        ]);
     }
 
     private function isSymptom(string $message): bool
