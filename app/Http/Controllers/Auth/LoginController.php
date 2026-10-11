@@ -22,7 +22,12 @@ class LoginController extends Controller
     {
         return view('auth.login');
     }
-
+    
+    public function showLoginForm()
+    {
+        return view('auth.login');
+    }
+    
     public function showRegister()
     {
         return view('auth.register');
