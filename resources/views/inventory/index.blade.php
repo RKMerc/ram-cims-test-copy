@@ -35,6 +35,38 @@
             @include('partials.low-stock-table', ['items' => $lowStockItems ?? collect()])
         </div>
 
+        @if(($batchReviewCount ?? 0) > 0)
+            <div class="alert alert-warning">
+                {{ $batchReviewCount }} batch {{ $batchReviewCount === 1 ? 'row needs' : 'rows need' }} a recorded batch number. Existing quantities and expiration dates were kept. No batch number or date was invented.
+            </div>
+        @endif
+
+        <form method="GET" action="{{ url('/inventory') }}" class="card shadow-sm mb-4">
+            <div class="card-body">
+                <div class="row g-2 align-items-end">
+                    <div class="col-12 col-md-5">
+                        <label for="inventory-search" class="form-label fw-semibold">Search inventory</label>
+                        <input type="search" name="q" id="inventory-search" value="{{ $search ?? '' }}" class="form-control" placeholder="Name, brand, category, or item code">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label for="inventory-category" class="form-label fw-semibold">Category</label>
+                        <select name="category" id="inventory-category" class="form-select">
+                            <option value="">All categories</option>
+                            @foreach(array_keys(\App\Models\Inventory::FORMS) as $categoryOption)
+                                <option value="{{ $categoryOption }}" @selected(($category ?? '') === $categoryOption)>{{ $categoryOption }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-3 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary fw-semibold">Search</button>
+                        @if(($search ?? '') !== '' || ($category ?? '') !== '')
+                            <a href="{{ url('/inventory') }}" class="btn btn-outline-secondary">Clear</a>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </form>
+
         @if(($configurationItems ?? collect())->isNotEmpty())
             <div class="alert alert-warning">
                 <div class="fw-semibold">Baseline review</div>
@@ -77,7 +109,18 @@
                                     {{ $item->ITEM_QUANTITY }} pcs
                                     <div class="small fw-semibold">{{ $stockStatus }}</div>
                                 </td>
-                                <td>{{ $item->ITEM_EXPIRATION_DATE ? \Carbon\Carbon::parse($item->ITEM_EXPIRATION_DATE)->format('Y-M-d') : 'N/A' }}</td>
+                                <td>
+                                    @forelse($item->batches as $batch)
+                                        <div class="small">
+                                            {{ $batch->batch_code ?: 'No batch number' }}
+                                            · {{ $batch->quantity }}
+                                            · {{ $batch->expiration_date?->format('Y-m-d') ?: 'No date' }}
+                                            · {{ $batch->stateLabel() }}
+                                        </div>
+                                    @empty
+                                        {{ $item->ITEM_EXPIRATION_DATE ? \Carbon\Carbon::parse($item->ITEM_EXPIRATION_DATE)->format('Y-M-d') : 'N/A' }}
+                                    @endforelse
+                                </td>
                                 <td class="text-center text-nowrap">
                                     <button type="button" 
                                         class="btn btn-sm btn-outline-primary fw-semibold edit-btn"
@@ -94,7 +137,9 @@
                                         data-target="{{ $item->target_stock }}"
                                         data-minimum="{{ $item->minimum_stock }}"
                                         data-kit="{{ $item->kit_complete === null ? '' : (int) $item->kit_complete }}"
-                                        data-expiration="{{ $item->ITEM_EXPIRATION_DATE }}">
+                                        data-expiration="{{ $item->ITEM_EXPIRATION_DATE }}"
+                                        data-batch="{{ $item->batches->count() === 1 ? $item->batches->first()->batch_code : '' }}"
+                                        data-batch-count="{{ $item->batches->count() }}">
                                     Edit
                                     </button>
                                     <form action="{{ route('inventory.dispense', $item->ITEM_CODE) }}" method="POST" class="d-inline-flex align-items-center gap-1 ms-1">
@@ -112,12 +157,15 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="text-center py-5 text-muted">No campus clinic supplies recorded yet.</td>
+                                <td colspan="9" class="text-center py-5 text-muted">{{ ($search ?? '') !== '' || ($category ?? '') !== '' ? 'No inventory items match that search.' : 'No campus clinic supplies recorded yet.' }}</td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
+            @if($supplies->hasPages())
+                <div class="card-body border-top">{{ $supplies->links() }}</div>
+            @endif
         </div>
     </div>
 
@@ -193,6 +241,15 @@
                         <div class="col-md-6" data-item-group="expiration" hidden>
                             <label for="ITEM_EXPIRATION_DATE" class="form-label fw-semibold" data-expiration-label>Expiration Date</label>
                             <input type="date" class="form-control" id="ITEM_EXPIRATION_DATE" name="ITEM_EXPIRATION_DATE">
+                        </div>
+                        <div class="col-md-6" data-item-group="expiration" hidden>
+                            <label for="batch_code" class="form-label fw-semibold">Batch number (optional)</label>
+                            <input type="text" class="form-control" id="batch_code" name="batch_code" maxlength="100">
+                            <div class="form-text">Leave blank if the receipt has no batch number. One will not be invented.</div>
+                        </div>
+                        <div class="col-md-6" data-item-group="expiration" hidden>
+                            <label for="receipt_reference" class="form-label fw-semibold">Receipt reference (optional)</label>
+                            <input type="text" class="form-control" id="receipt_reference" name="receipt_reference" maxlength="100">
                         </div>
                     </div>
                     <div class="modal-footer bg-light">
@@ -275,6 +332,11 @@
                             <label for="edit_ITEM_EXPIRATION_DATE" class="form-label fw-semibold" data-expiration-label>Expiration Date</label>
                             <input type="date" class="form-control" id="edit_ITEM_EXPIRATION_DATE" name="ITEM_EXPIRATION_DATE">
                         </div>
+                        <div class="col-md-6" data-item-group="expiration">
+                            <label for="edit_batch_code" class="form-label fw-semibold">Batch number</label>
+                            <input type="text" class="form-control" id="edit_batch_code" name="batch_code" maxlength="100" autocomplete="off">
+                            <div class="form-text" id="edit_batch_help">Enter the number printed on the box or receipt. Leave blank if there is none.</div>
+                        </div>
                     </div>
                     <div class="modal-footer bg-light">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -334,6 +396,10 @@
             }
             const expiration = form.querySelector('[name="ITEM_EXPIRATION_DATE"]');
             const expirationLabel = form.querySelector('[data-expiration-label]');
+            const batchInput = form.querySelector('[name="batch_code"]');
+            if (batchInput && Number(form.dataset.batchCount || '0') > 1) {
+                batchInput.disabled = true;
+            }
             if (dosage) dosage.required = visible.indexOf('dosage') !== -1;
             if (unit) unit.required = visible.indexOf('dosage') !== -1;
             if (itemForm) itemForm.required = visible.indexOf('form') !== -1;
@@ -402,7 +468,19 @@
                         document.getElementById('edit_ITEM_EXPIRATION_DATE').value = '';
                     }
 
-                    applyItemLayout(document.getElementById('editItemForm'));
+                    const editForm = document.getElementById('editItemForm');
+                    const batchCount = Number(button.getAttribute('data-batch-count') || '0');
+                    const batchInput = document.getElementById('edit_batch_code');
+                    const batchHelp = document.getElementById('edit_batch_help');
+                    editForm.dataset.batchCount = String(batchCount);
+                    batchInput.value = button.getAttribute('data-batch') || '';
+                    if (batchCount > 1) {
+                        batchHelp.textContent = 'This item has more than one batch. Each batch number is listed on its own line.';
+                    } else {
+                        batchHelp.textContent = 'Enter the number printed on the box or receipt. Leave blank if there is none.';
+                    }
+
+                    applyItemLayout(editForm);
                 });
             }
 

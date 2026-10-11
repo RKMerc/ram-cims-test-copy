@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Inventory;
+use App\Models\InventoryBatch;
 use App\Models\LowStockReport;
 use App\Support\InventoryLedger;
 use App\Support\StockBaseline;
@@ -12,15 +13,48 @@ use Illuminate\Validation\Rule;
 
 class InventoryController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $supplies = Inventory::query()->orderBy('ITEM_CODE')->get();
+        $search = trim((string) $request->query('q', ''));
+        $category = trim((string) $request->query('category', ''));
+        $supplies = Inventory::query()->with('batches')->orderBy('ITEM_CODE');
+
+        if ($category !== '' && array_key_exists($category, Inventory::FORMS)) {
+            $supplies->where(function ($query) use ($category) {
+                $query->where('ITEM_CATEGORY', $category);
+                if ($category === 'First Aid Kit') {
+                    $query->orWhere('ITEM_CATEGORY', 'First Aid');
+                }
+            });
+        }
+
+        if ($search !== '') {
+            $like = '%'.addcslashes($search, '%_\\').'%';
+            $supplies->where(function ($query) use ($like) {
+                $query->where('GENERIC_NAME', 'like', $like)
+                    ->orWhere('BRAND_NAME', 'like', $like)
+                    ->orWhere('ITEM_CATEGORY', 'like', $like)
+                    ->orWhere('ITEM_CODE', 'like', $like);
+            });
+        }
+
         $nextItemCode = Inventory::nextItemCode();
         $lowStockItems = Inventory::lowStockItems();
         $configurationItems = Inventory::configurationRequiredItems();
         $lowStockReport = LowStockReport::query()->latest()->first();
+        $batchReviewCount = InventoryBatch::query()->where('needs_review', true)->count();
+        $supplies = $supplies->paginate(20)->withQueryString();
 
-        return view('inventory.index', compact('supplies', 'nextItemCode', 'lowStockItems', 'configurationItems', 'lowStockReport'));
+        return view('inventory.index', compact(
+            'supplies',
+            'nextItemCode',
+            'lowStockItems',
+            'configurationItems',
+            'lowStockReport',
+            'search',
+            'category',
+            'batchReviewCount'
+        ));
     }
 
     public function notifyLogistics()
@@ -64,7 +98,13 @@ class InventoryController extends Controller
         app(StockBaseline::class)->initialize($item, $quantity);
 
         if ($quantity > 0) {
-            $ledger->receive($item->fresh(), $quantity, $request->user(), 'Opening stock');
+            $saved = $ledger->receive($item->fresh(), $quantity, $request->user(), 'Opening stock');
+            $ledger->attachOpeningBatch(
+                $saved,
+                $quantity,
+                $request->input('batch_code'),
+                $request->input('receipt_reference')
+            );
         } else {
             app(StockWatch::class)->sync($item->fresh());
         }
@@ -81,6 +121,18 @@ class InventoryController extends Controller
         unset($validated['ITEM_QUANTITY']);
         $submittedBaseline = array_key_exists('target_stock', $validated) && $validated['target_stock'] !== null;
         $item->update($validated);
+        $batches = $item->batches()->get();
+        if ($batches->count() === 1) {
+            $changes = [
+                'expiration_date' => $item->fresh()->ITEM_EXPIRATION_DATE,
+            ];
+            if ($request->exists('batch_code')) {
+                $code = trim((string) $request->input('batch_code'));
+                $changes['batch_code'] = $code !== '' ? $code : null;
+                $changes['needs_review'] = $code === '';
+            }
+            $batches->first()->update($changes);
+        }
         if ($submittedBaseline && (int) $validated['target_stock'] !== $previousBaseline) {
             $item->forceFill([
                 'baseline_status' => 'approved',
@@ -133,6 +185,7 @@ class InventoryController extends Controller
             'minimum_stock' => 'nullable|integer|min:0',
             'kit_complete' => 'nullable|boolean',
             'ITEM_EXPIRATION_DATE' => [$category === 'Medicine' ? 'required' : 'nullable', 'date'],
+            'batch_code' => 'nullable|string|max:100',
         ]);
 
         if (! $isMedicine) {
@@ -157,6 +210,8 @@ class InventoryController extends Controller
         } else {
             $validated['kit_complete'] = null;
         }
+
+        unset($validated['batch_code']);
 
         return $validated;
     }

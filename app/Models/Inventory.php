@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Inventory extends Model
 {
@@ -23,13 +24,15 @@ class Inventory extends Model
     ];
 
     protected $table = 'inventory';
+
     protected $primaryKey = 'ITEM_CODE';
-    
+
     // Set to false if ITEM_CODE is a custom string (e.g., "MED-001") rather than an auto-incrementing integer
     public $incrementing = false; // Change from false to true
+
     protected $keyType = 'int';   // Change from 'string' to 'int'
 
-    public $timestamps = false; 
+    public $timestamps = false;
 
     // Define columns safe for mass-assignment (excluding price, adding generic/brand)
     protected $fillable = [
@@ -46,8 +49,13 @@ class Inventory extends Model
         'baseline_status',
         'needs_baseline_review',
         'kit_complete',
-        'ITEM_EXPIRATION_DATE'
+        'ITEM_EXPIRATION_DATE',
     ];
+
+    public function batches(): HasMany
+    {
+        return $this->hasMany(InventoryBatch::class, 'item_code', 'ITEM_CODE');
+    }
 
     public function normalizedCategory(): string
     {
@@ -56,7 +64,8 @@ class Inventory extends Model
 
     public function availableQuantity(): int
     {
-        $quantity = max(0, (int) $this->ITEM_QUANTITY);
+        $fromBatches = $this->dispensableFromBatches();
+        $quantity = $fromBatches ?? max(0, (int) $this->ITEM_QUANTITY);
 
         if ($this->normalizedCategory() === 'First Aid Kit' && $this->kit_complete !== null && ! $this->kit_complete) {
             return 0;
@@ -139,6 +148,25 @@ class Inventory extends Model
         }
 
         return 'units';
+    }
+
+    private function dispensableFromBatches(): ?int
+    {
+        $batches = $this->relationLoaded('batches') ? $this->batches : null;
+
+        if ($batches === null) {
+            if (! $this->batches()->exists()) {
+                return null;
+            }
+
+            $batches = $this->batches()->get();
+        }
+
+        if ($batches->isEmpty()) {
+            return null;
+        }
+
+        return (int) $batches->sum(fn (InventoryBatch $batch) => $batch->dispensableQuantity($this->normalizedCategory()));
     }
 
     private function resolvedThreshold(): ?int
