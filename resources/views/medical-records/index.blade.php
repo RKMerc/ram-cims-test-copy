@@ -11,6 +11,20 @@
             <h5 class="mb-0 fw-bold">Medical Records Management</h5>
             <button class="btn btn-sm btn-light fw-semibold rounded-2" data-bs-toggle="modal" data-bs-target="#addMedicalRecordModal">+ Add Medical Record</button>
         </div>
+        <div class="card-body border-bottom">
+            <form method="GET" action="{{ url('/medical-records') }}" class="row g-2 align-items-end">
+                <div class="col-12 col-md-6">
+                    <label for="record-search" class="form-label fw-semibold mb-1">Search records</label>
+                    <input type="search" name="q" id="record-search" value="{{ $search ?? '' }}" class="form-control" placeholder="Patient name, number, record ID, or date">
+                </div>
+                <div class="col-12 col-md-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary fw-semibold">Search</button>
+                    @if(($search ?? '') !== '')
+                        <a href="{{ url('/medical-records') }}" class="btn btn-outline-secondary">Clear</a>
+                    @endif
+                </div>
+            </form>
+        </div>
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover table-striped mb-0 align-middle">
@@ -61,12 +75,15 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="8" class="text-center py-4 text-muted">No medical records found.</td>
+                            <td colspan="8" class="text-center py-4 text-muted">{{ ($search ?? '') !== '' ? 'No medical records match that search.' : 'No medical records found.' }}</td>
                         </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
+            @if($medicalRecords->hasPages())
+                <div class="p-3 border-top">{{ $medicalRecords->links() }}</div>
+            @endif
         </div>
     </div>
 </div>

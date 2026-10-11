@@ -4,11 +4,11 @@ use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
-use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DutySlotController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\MedicalRecordController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PreviewController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RamseyController;
@@ -32,10 +32,11 @@ if (app()->environment('local')) {
 Route::get('/', [LoginController::class, 'showLoginForm'])->name('login');
 
 Route::get('/preview/{role}', function ($role) {
-    if (!in_array($role, ['student', 'staff'])) {
+    if (! in_array($role, ['student', 'staff'])) {
         abort(404);
     }
     session(['preview_role' => $role]);
+
     return redirect()->route('dashboard');
 })->name('preview');
 
@@ -61,6 +62,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/visit-history', [VisitHistoryController::class, 'index'])->name('visit-history');
 
     Route::get('/appointments/slots', [AppointmentController::class, 'slots'])->name('appointments.slots');
+    Route::get('/appointments/duty-dates', [AppointmentController::class, 'dutyDates'])->name('appointments.duty-dates');
     Route::resource('appointments', AppointmentController::class);
     Route::post('/duty-slots/book', [DutySlotController::class, 'book'])->name('duty-slots.book');
     Route::post('/duty-slots/cancel', [DutySlotController::class, 'cancel'])->name('duty-slots.cancel');

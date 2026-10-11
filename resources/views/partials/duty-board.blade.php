@@ -1,6 +1,10 @@
 @php
     $returnTo = request()->getRequestUri();
     $grid = $dutyGrid ?? ['days' => [], 'rows' => []];
+    $canManageSlots = \App\Support\PortalGrant::isDualView(auth()->user()?->email) || (
+        ($isClinicStaff ?? false)
+        && strtolower((string) ($clinicAccount->medicalStaff->subUserType->Name ?? '')) === 'nurse'
+    );
 @endphp
 
 <div class="card mb-4 shadow-sm border-0 rounded-3 overflow-hidden" id="duty-board">
@@ -32,8 +36,11 @@
                 </select>
             </div>
             <div class="col-lg-4 d-flex gap-2">
-                <a class="btn btn-outline-primary fw-semibold flex-fill" href="{{ url()->current() }}?practitioner={{ urlencode((string) $dutyPractitioner) }}&week={{ $previousWeek }}">Previous week</a>
-                <a class="btn btn-outline-primary fw-semibold flex-fill" href="{{ url()->current() }}?practitioner={{ urlencode((string) $dutyPractitioner) }}&week={{ $nextWeek }}">Next week</a>
+                @php
+                    $dutyWeekQuery = request()->except(['practitioner', 'duty_date', 'week', 'page']);
+                @endphp
+                <a class="btn btn-outline-primary fw-semibold flex-fill" href="{{ url()->current() }}?{{ http_build_query(array_merge($dutyWeekQuery, ['practitioner' => $dutyPractitioner, 'week' => $previousWeek])) }}">Previous week</a>
+                <a class="btn btn-outline-primary fw-semibold flex-fill" href="{{ url()->current() }}?{{ http_build_query(array_merge($dutyWeekQuery, ['practitioner' => $dutyPractitioner, 'week' => $nextWeek])) }}">Next week</a>
             </div>
         </form>
         <p class="small text-muted mt-3 mb-0">Click a cell to book an open hour, review a booked visit, or see why a slot is closed.</p>
@@ -101,6 +108,7 @@
                 </div>
                 <div class="modal-body">
                     <p class="mb-3" id="duty_cell_closed" hidden>This physician is not on duty during this hour, so the cell stays closed.</p>
+                    <p class="mb-3" id="duty_cell_unavailable" hidden>This hour was marked unavailable. No visit is booked in it.</p>
                     <div id="duty_cell_occupied" hidden>
                         <p class="mb-1"><span class="text-muted">Patient</span><br><strong id="duty_cell_patient"></strong></p>
                         <p class="mb-1"><span class="text-muted">Patient ID</span><br><strong id="duty_cell_patient_id"></strong></p>
@@ -140,6 +148,17 @@
                         </form>
                     @endif
                     <button type="submit" class="btn btn-primary fw-semibold" id="duty_cell_book_button" form="duty_cell_book" hidden>Book Appointment</button>
+                    @if($canManageSlots)
+                        <form method="POST" action="{{ route('duty-slots.toggle') }}" id="duty_cell_toggle" hidden>
+                            @csrf
+                            <input type="hidden" name="practitioner" value="{{ $dutyPractitioner }}">
+                            <input type="hidden" name="duty_date" id="toggle_duty_date" value="">
+                            <input type="hidden" name="start" id="toggle_start" value="">
+                            <input type="hidden" name="status" id="toggle_status" value="unavailable">
+                            <input type="hidden" name="return_to" value="{{ $returnTo }}">
+                            <button type="submit" class="btn btn-outline-warning fw-semibold" id="duty_cell_toggle_button">Mark unavailable</button>
+                        </form>
+                    @endif
                 </div>
             </div>
         </div>
@@ -175,12 +194,24 @@
             const book = document.getElementById('duty_cell_book');
             const bookButton = document.getElementById('duty_cell_book_button');
             const cancel = document.getElementById('duty_cell_cancel');
+            const unavailable = document.getElementById('duty_cell_unavailable');
+            const toggle = document.getElementById('duty_cell_toggle');
+            const toggleStatus = document.getElementById('toggle_status');
+            const toggleButton = document.getElementById('duty_cell_toggle_button');
 
             if (closed) closed.hidden = kind !== 'closed';
+            if (unavailable) unavailable.hidden = kind !== 'unavailable';
             if (occupied) occupied.hidden = kind !== 'occupied';
             if (book) book.hidden = kind !== 'available';
             if (bookButton) bookButton.hidden = kind !== 'available';
             if (cancel) cancel.hidden = kind !== 'occupied';
+            if (toggle) toggle.hidden = kind !== 'available' && kind !== 'unavailable';
+            if (toggleStatus) toggleStatus.value = kind === 'unavailable' ? 'available' : 'unavailable';
+            if (toggleButton) toggleButton.textContent = kind === 'unavailable' ? 'Mark available' : 'Mark unavailable';
+            const toggleDate = document.getElementById('toggle_duty_date');
+            const toggleStart = document.getElementById('toggle_start');
+            if (toggleDate) toggleDate.value = date;
+            if (toggleStart) toggleStart.value = start;
 
             if (kind === 'occupied') {
                 document.getElementById('duty_cell_patient').textContent = button.getAttribute('data-patient') || 'Patient';

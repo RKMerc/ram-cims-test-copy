@@ -15,17 +15,33 @@ use Illuminate\Validation\ValidationException;
 
 class UserAccountController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $this->authorizeProfiles();
 
         $types = UserType::query()->orderBy('Name')->get();
+        $search = trim((string) $request->query('q', ''));
+        $users = AppUser::query()->with(['userType', 'medicalStaff.subUserType'])->orderBy('LastName')->orderBy('FirstName');
+
+        if ($search !== '') {
+            $like = '%'.addcslashes($search, '%_\\').'%';
+            $users->where(function ($query) use ($like) {
+                $query->where('FirstName', 'like', $like)
+                    ->orWhere('MiddleName', 'like', $like)
+                    ->orWhere('LastName', 'like', $like)
+                    ->orWhere('EmailAddress', 'like', $like)
+                    ->orWhere('Student_Employee_No', 'like', $like)
+                    ->orWhereHas('userType', fn ($type) => $type->where('Name', 'like', $like))
+                    ->orWhereHas('medicalStaff.subUserType', fn ($type) => $type->where('Name', 'like', $like));
+            });
+        }
 
         return view('users.index', [
-            'users' => AppUser::query()->with(['userType', 'medicalStaff.subUserType'])->orderBy('LastName')->orderBy('FirstName')->get(),
+            'users' => $users->paginate(12)->withQueryString(),
             'types' => $types,
             'typeNames' => $types->mapWithKeys(fn (UserType $type) => [$type->Id => $type->Name]),
             'subtypes' => SubUserType::query()->orderBy('Name')->get(),
+            'search' => $search,
         ]);
     }
 

@@ -8,11 +8,20 @@ class ClinicAccess
 {
     private AppUser|false|null $resolved = false;
 
+    private ?string $resolvedEmail = null;
+
     public function account(): ?AppUser
     {
+        $email = strtolower((string) auth()->user()?->email);
+        if ($this->resolved !== false && $this->resolvedEmail !== $email) {
+            $this->resolved = false;
+        }
+
         if ($this->resolved !== false) {
             return $this->resolved;
         }
+
+        $this->resolvedEmail = $email;
 
         if (! auth()->check() && ! session()->has('clinic.app_user_id')) {
             return $this->resolved = null;
@@ -62,6 +71,7 @@ class ClinicAccess
             'clinic.user_type_id' => $account->UserTypeId,
         ]);
 
+        $this->resolvedEmail = strtolower((string) $account->EmailAddress);
         $this->resolved = $account;
     }
 

@@ -3,15 +3,57 @@
 namespace App\Http\Controllers;
 
 use App\Models\Appointment;
+use App\Models\AppUser;
 use App\Models\MedicalRecord;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class MedicalRecordController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $medicalRecords = MedicalRecord::orderBy('MEDREC_CONSUL_DATE', 'desc')->get();
+        $search = trim((string) $request->query('q', ''));
+        $records = MedicalRecord::query()->orderByDesc('MEDREC_CONSUL_DATE');
+
+        if ($search !== '') {
+            $like = '%'.addcslashes($search, '%_\\').'%';
+            $patientIds = AppUser::query()
+                ->where(function ($query) use ($like) {
+                    $query->where('FirstName', 'like', $like)
+                        ->orWhere('MiddleName', 'like', $like)
+                        ->orWhere('LastName', 'like', $like)
+                        ->orWhere('Student_Employee_No', 'like', $like);
+                })
+                ->get()
+                ->flatMap(fn (AppUser $account) => $account->recordIds())
+                ->all();
+
+            $appointmentPatientIds = Appointment::query()
+                ->where('PATIENT_NAME', 'like', $like)
+                ->pluck('PATIENT_ID')
+                ->map(fn ($id) => (string) $id)
+                ->all();
+
+            $records->where(function ($query) use ($like, $search, $patientIds, $appointmentPatientIds) {
+                $query->where('PATIENT_ID', 'like', $like);
+
+                if (ctype_digit($search)) {
+                    $query->orWhere('MEDREC_ID', (int) $search);
+                }
+
+                if (strtotime($search) !== false && preg_match('/\d{4}-\d{2}-\d{2}/', $search)) {
+                    $query->orWhereDate('MEDREC_CONSUL_DATE', $search);
+                }
+
+                $ids = array_values(array_unique(array_merge($patientIds, $appointmentPatientIds)));
+                if ($ids !== []) {
+                    $query->orWhereIn('PATIENT_ID', $ids);
+                }
+            });
+        }
+
+        $medicalRecords = $records->paginate(20)->withQueryString();
         $appointments = Appointment::query()->orderBy('PATIENT_NAME')->orderByDesc('SCHEDULED_AT')->get();
         $patients = $appointments
             ->unique(fn (Appointment $appointment) => (string) $appointment->PATIENT_ID)
@@ -27,7 +69,7 @@ class MedicalRecordController extends Controller
             'label' => '#'.$appointment->APPOINTMENT_ID.' — '.Carbon::parse($appointment->SCHEDULED_AT)->format('M d, Y h:i A'),
         ])->values();
 
-        return view('medical-records.index', compact('medicalRecords', 'patients', 'appointmentChoices'));
+        return view('medical-records.index', compact('medicalRecords', 'patients', 'appointmentChoices', 'search'));
     }
 
     public function store(Request $request)
@@ -61,7 +103,7 @@ class MedicalRecordController extends Controller
         $appointment = Appointment::query()->find($validated['APPT_ID']);
 
         if (! $appointment || (string) $appointment->PATIENT_ID !== (string) $validated['PATIENT_ID']) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'APPT_ID' => 'Choose an appointment for that patient.',
             ]);
         }

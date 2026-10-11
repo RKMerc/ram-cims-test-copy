@@ -62,8 +62,22 @@ Production needs a cron entry that runs `php artisan schedule:run` every minute,
 
 The local queue connection is `database`. A failed job remains in `failed_jobs` and can be retried with `php artisan queue:retry`. This pass did not deploy the app or change production hosting. HTTPS and the Microsoft redirect URI still have to match the deployed host.
 
+## Accounts, appointments, inventory, and records
+
+The Accounts edit form uses a wider dialog so Email, Student/Employee Number, and Contact sit on one row on a large screen and stack on a narrow screen. Accounts, Inventory, and Medical Records have a server-side search. Inventory search can be combined with the category filter and does not change quantities.
+
+Appointment booking dates come from the physician's open duty slots for the current week and the following weeks. The free-standing duty date field was removed from that form. The appointment list defaults to the current Manila week and later, ordered by appointment time. Earlier visits stay in the database and open from Previous weeks. Treatment-first queue ordering was not changed. Student booking uses the clinic clock in Asia/Manila, the same clock as the week filter.
+
+An authorized nurse in the staff view, or a listed clinic developer, can mark an open future duty hour unavailable and mark it available again. A booked or past hour cannot be reopened, and the appointment itself is not changed. The change is written to `audit_logs`.
+
+Inventory batches are stored in `inventory_batches`. Existing quantity and expiration values were copied. Batch numbers were not invented, and those rows are flagged for review. The edit form has a Batch number field beside Expiration Date so staff can enter the number from the receipt. Expired medicine batches are not dispensed. A dispense uses the earliest valid expiration first. Changing the quantity of an item that has one batch updates that batch. Low stock still uses the dispensable quantity.
+
+The Final Paper and SRS are not in this repository, so they were not edited.
+
 ## Tests
 
 `php artisan test` was run after the baseline, notification, and mail-template changes: 38 passed, 566 assertions. The mailer is still `log`, so Gmail delivery was not verified. A completed Microsoft sign-in was not run.
 
 After the RAMsey Gemini filter was added, `php artisan test` passed 47 tests and 643 assertions. Gemini was mocked. No live call was made because `GEMINI_API_KEY` is empty. The automated tests cover English, Filipino, and Taglish navigation questions, medication and record refusals, identifier filtering, prompt injection, role spoofing, unauthorized actions, a failed API response, a blocked model response, an unsafe dosage in the model text, rate limiting, and the absence of the API key from the page.
+
+After these appointment, slot, and account checks, `php artisan test` passed 54 tests and 727 assertions. Coverage includes appointment time order, clinic-time slot filtering, nurse and listed-developer slot changes, and a medical-staff update that reports a missing role before it checks the license format. A signed-in browser pass of those screens was not completed.

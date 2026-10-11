@@ -7,15 +7,16 @@ use App\Models\AppUser;
 use App\Models\AppUserMedicalStaff;
 use App\Models\ClinicNotification;
 use App\Models\Inventory;
+use App\Models\InventoryTransaction;
 use App\Models\MedicalRecord;
+use App\Models\StockAlert;
 use App\Models\SubUserType;
 use App\Models\User;
 use App\Models\UserType;
-use App\Models\InventoryTransaction;
-use App\Models\StockAlert;
 use App\Support\ClinicAccess;
 use App\Support\InventoryLedger;
 use App\Support\StockBaseline;
+use App\Support\StockWatch;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
@@ -160,11 +161,11 @@ class ClinicImprovementTest extends TestCase
         $this->assertSame(2, ClinicNotification::count());
 
         Inventory::where('ITEM_CODE', 7201)->update(['ITEM_QUANTITY' => 80]);
-        app(\App\Support\StockWatch::class)->sync(Inventory::where('ITEM_CODE', 7201)->first());
+        app(StockWatch::class)->sync(Inventory::where('ITEM_CODE', 7201)->first());
         $this->assertSame(0, StockAlert::where('item_code', 7201)->whereNull('resolved_at')->count());
 
         Inventory::where('ITEM_CODE', 7201)->update(['ITEM_QUANTITY' => 40]);
-        app(\App\Support\StockWatch::class)->sync(Inventory::where('ITEM_CODE', 7201)->first());
+        app(StockWatch::class)->sync(Inventory::where('ITEM_CODE', 7201)->first());
         $this->assertSame(1, StockAlert::where('item_code', 7201)->whereNull('resolved_at')->count());
         $this->assertSame(3, ClinicNotification::count());
         Mail::assertQueued(LowStockAlertMail::class, function (LowStockAlertMail $mail) {
@@ -369,6 +370,12 @@ class ClinicImprovementTest extends TestCase
             'LicenseNo' => 'RN-8888',
         ]))->assertSessionHasErrors('SubUserTypeId');
         $this->assertNull($employee->fresh()->medicalStaff);
+
+        $this->actingAs($admin)->put('/users/'.$nurse->Id, $this->payload($nurse, [
+            'LicenseNo' => 'NO',
+        ]))->assertSessionHasErrors('SubUserTypeId')
+            ->assertSessionDoesntHaveErrors('LicenseNo');
+        $this->assertSame('RN-1001', $nurse->fresh()->medicalStaff->LicenseNo);
 
         $studentType = UserType::where('Name', 'Student')->firstOrFail()->Id;
         $this->actingAs($admin)->put('/users/'.$nurse->Id, $this->payload($nurse, [

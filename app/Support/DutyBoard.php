@@ -4,9 +4,11 @@ namespace App\Support;
 
 use App\Models\Appointment;
 use App\Models\AppUser;
+use App\Models\AppUserMedicalStaff;
 use App\Models\DutySlotState;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 
 class DutyBoard
 {
@@ -66,6 +68,13 @@ class DutyBoard
             ->orderBy('SCHEDULED_AT')
             ->get();
 
+        $overrides = DutySlotState::query()
+            ->where('PRACTITIONER_NAME', $name)
+            ->whereDate('SLOT_DATE', '>=', $days[0]['date'])
+            ->whereDate('SLOT_DATE', '<=', $days[4]['date'])
+            ->get()
+            ->keyBy(fn (DutySlotState $state) => $state->SLOT_DATE->toDateString().'|'.$this->clock($state->START_TIME));
+
         $rows = [];
 
         for ($hour = 8; $hour <= 16; $hour++) {
@@ -89,12 +98,21 @@ class DutyBoard
                     'appointment_id' => $first?->APPOINTMENT_ID,
                 ];
 
+                $override = $overrides->get($day['date'].'|'.$start->format('H:i:s'))?->STATUS;
+
                 if ($booked->isNotEmpty()) {
                     $cells[] = $base + [
                         'open' => false,
                         'kind' => 'occupied',
                         'text' => 'OCCUPIED - '.$patient,
                         'hint' => 'Click to view',
+                    ];
+                } elseif ($override === 'unavailable' && $onShift) {
+                    $cells[] = $base + [
+                        'open' => false,
+                        'kind' => 'unavailable',
+                        'text' => 'MANUALLY UNAVAILABLE',
+                        'hint' => 'Click to reopen',
                     ];
                 } elseif (! $onShift) {
                     $cells[] = $base + [
@@ -136,7 +154,7 @@ class DutyBoard
             5 => $roster['IsFriday'],
         ];
 
-        if (! \Illuminate\Support\Facades\Schema::hasColumn('AppUser_MedicalStaff', 'IsMonday')) {
+        if (! Schema::hasColumn('AppUser_MedicalStaff', 'IsMonday')) {
             return $mapped;
         }
 
@@ -155,7 +173,7 @@ class DutyBoard
         ];
     }
 
-    private function medicalStaffFor(string $name): ?\App\Models\AppUserMedicalStaff
+    private function medicalStaffFor(string $name): ?AppUserMedicalStaff
     {
         $email = null;
 
@@ -245,19 +263,30 @@ class DutyBoard
     {
         $start = $this->clock($start);
         $slot = $this->findSlot($name, $date, $start);
-        $key = [
-            'PRACTITIONER_NAME' => $name,
-            'SLOT_DATE' => Carbon::parse($date)->toDateString(),
-            'START_TIME' => $start,
-        ];
+        $existing = DutySlotState::query()
+            ->where('PRACTITIONER_NAME', $name)
+            ->whereDate('SLOT_DATE', Carbon::parse($date)->toDateString())
+            ->get()
+            ->first(fn (DutySlotState $state) => $this->clock($state->START_TIME) === $start);
 
         if ($status === 'available' && is_array($slot) && ! empty($slot['on_duty'])) {
-            DutySlotState::query()->where($key)->delete();
+            $existing?->delete();
 
             return;
         }
 
-        DutySlotState::query()->updateOrCreate($key, ['STATUS' => $status]);
+        if ($existing) {
+            $existing->update(['STATUS' => $status]);
+
+            return;
+        }
+
+        DutySlotState::query()->create([
+            'PRACTITIONER_NAME' => $name,
+            'SLOT_DATE' => Carbon::parse($date)->toDateString(),
+            'START_TIME' => $start,
+            'STATUS' => $status,
+        ]);
     }
 
     public function nextStatus(string $current): string
