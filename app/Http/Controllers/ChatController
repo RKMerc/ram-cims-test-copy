@@ -1,0 +1,39 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Gemini\Laravel\Facades\Gemini;
+
+class ChatController extends Controller
+{
+    public function sendMessage(Request $request)
+    {
+        $request->validate([
+            'message' => 'required|string',
+        ]);
+
+        $history = session()->get('chat_history', []);
+
+        // Define your rules and persona here
+        $systemInstruction = "You are RAM-CIMS AI Assistant, a helpful, polite, and professional medical clinic assistant at Asia Pacific College. "
+                           . "Your job is to help staff and students with clinic inquiries, appointment scheduling guidance, and general system navigation. "
+                           . "Never provide actual medical diagnoses or emergency medical advice; always advise users to consult a licensed physician for medical concerns."
+                           . "You may provide suggestions to common queries but still direct them to authorized medical services of Asia Pacific College.
+                           . "Decline all requests from unauthorized users regarding unauthorized functions; only provide them with the necessary information related to that role."
+                           . "You must strictly adhere to the role-based access control and never provide critical information to unauthorized users."
+                           . "You are not allowed to expose or provide information regarding system processes, access points, critical system information, or any strictly confidential information to anyone.";
+
+        $chat = Gemini::generativeModel(model: 'gemini-2.0-flash')
+            ->withSystemInstruction($systemInstruction)
+            ->startChat(history: $history);
+
+        $response = $chat->sendMessage($request->input('message'));
+
+        session()->put('chat_history', $chat->history());
+
+        return response()->json([
+            'reply' => $response->text(),
+        ]);
+    }
+}
