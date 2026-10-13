@@ -138,6 +138,7 @@
     </div>
 </div>
 
+<!-- Edit Medical Record Modal -->
 <div class="modal fade" id="editMedicalRecordModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <form method="POST" id="editMedicalRecordForm" action="/medical-records/0" class="modal-content">
@@ -159,9 +160,8 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold" for="edit_record_appointment">Appointment ID</label>
-                    <select name="APPT_ID" id="edit_record_appointment" class="form-select" required>
-                        <option value="" disabled>Select a patient first</option>
-                    </select>
+                    <input type="text" id="edit_record_appointment_display" class="form-control bg-light" readonly>
+                    <input type="hidden" name="APPT_ID" id="edit_record_appointment_id">
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold" for="edit_record_date">Consultation Date</label>
@@ -224,9 +224,16 @@ document.getElementById('editMedicalRecordModal')?.addEventListener('show.bs.mod
     const button = event.relatedTarget;
     if (!button) return;
     document.getElementById('editMedicalRecordForm').action = '/medical-records/' + button.getAttribute('data-id');
+    
     const patientSelect = document.getElementById('edit_record_patient');
     patientSelect.value = button.getAttribute('data-patient') || '';
-    fillAppointmentOptions(patientSelect, document.getElementById('edit_record_appointment'), button.getAttribute('data-appointment'));
+    const apptId = button.getAttribute('data-appointment');
+    document.getElementById('edit_record_appointment_id').value = apptId;
+    const matchedAppt = appointmentChoices.find(function(item) {
+        return String(item.id) === String(apptId);
+    });
+    
+    document.getElementById('edit_record_appointment_display').value = matchedAppt ? matchedAppt.label : ('#' + apptId);
     document.getElementById('edit_record_date').value = button.getAttribute('data-date') || '';
     document.getElementById('edit_record_diagnosis').value = button.getAttribute('data-diagnosis') || '';
     document.getElementById('edit_record_dosage').value = button.getAttribute('data-dosage') || '';
