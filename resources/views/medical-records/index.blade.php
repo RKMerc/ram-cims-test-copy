@@ -223,17 +223,16 @@ document.getElementById('edit_record_patient')?.addEventListener('change', funct
 document.getElementById('editMedicalRecordModal')?.addEventListener('show.bs.modal', function (event) {
     const button = event.relatedTarget;
     if (!button) return;
+    
     document.getElementById('editMedicalRecordForm').action = '/medical-records/' + button.getAttribute('data-id');
     
     const patientSelect = document.getElementById('edit_record_patient');
     patientSelect.value = button.getAttribute('data-patient') || '';
+    
     const apptId = button.getAttribute('data-appointment');
     document.getElementById('edit_record_appointment_id').value = apptId;
-    const matchedAppt = appointmentChoices.find(function(item) {
-        return String(item.id) === String(apptId);
-    });
-    
-    document.getElementById('edit_record_appointment_display').value = matchedAppt ? matchedAppt.label : ('#' + apptId);
+    document.getElementById('edit_record_appointment_display').value = apptId ? ('#' + apptId) : 'Walk-in';
+
     document.getElementById('edit_record_date').value = button.getAttribute('data-date') || '';
     document.getElementById('edit_record_diagnosis').value = button.getAttribute('data-diagnosis') || '';
     document.getElementById('edit_record_dosage').value = button.getAttribute('data-dosage') || '';
