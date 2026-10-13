@@ -68,6 +68,7 @@ class MedicalRecordController extends Controller
             'patient_id' => (string) $appointment->PATIENT_ID,
             'label' => '#'.$appointment->APPOINTMENT_ID,
             'scheduled' => ClinicCalendar::parse((string) $appointment->SCHEDULED_AT)->format('F j, Y, g:i A'),
+            'date' => Carbon::parse($appointment->SCHEDULED_AT)->format('Y-m-d'),
         ])->values();
         $consultationDateLimit = ClinicCalendar::now()->toDateString();
 
@@ -86,6 +87,11 @@ class MedicalRecordController extends Controller
     public function update(Request $request, $id)
     {
         $record = MedicalRecord::findOrFail($id);
+
+        if ($record->APPT_ID) {
+            $request->merge(['APPT_ID' => $record->APPT_ID]);
+        }
+
         $record->update($this->validatedRecord($request));
 
         return redirect()->back()->with('success', 'Medical record updated.');
