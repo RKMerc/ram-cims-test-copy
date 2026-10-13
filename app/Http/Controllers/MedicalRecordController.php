@@ -66,7 +66,8 @@ class MedicalRecordController extends Controller
         $appointmentChoices = $appointments->map(fn (Appointment $appointment) => [
             'id' => $appointment->APPOINTMENT_ID,
             'patient_id' => (string) $appointment->PATIENT_ID,
-            'label' => '#'.$appointment->APPOINTMENT_ID.' — '.Carbon::parse($appointment->SCHEDULED_AT)->format('M d, Y h:i A'),
+            'label' => '#'.$appointment->APPOINTMENT_ID,
+            'date' => Carbon::parse($appointment->SCHEDULED_AT)->format('Y-m-d'),
         ])->values();
 
         return view('medical-records.index', compact('medicalRecords', 'patients', 'appointmentChoices', 'search'));
@@ -84,6 +85,11 @@ class MedicalRecordController extends Controller
     public function update(Request $request, $id)
     {
         $record = MedicalRecord::findOrFail($id);
+
+        if ($record->APPT_ID) {
+            $request->merge(['APPT_ID' => $record->APPT_ID]);
+        }
+
         $record->update($this->validatedRecord($request));
 
         return redirect()->back()->with('success', 'Medical record updated.');

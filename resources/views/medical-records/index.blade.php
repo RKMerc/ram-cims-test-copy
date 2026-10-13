@@ -115,7 +115,7 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Consultation Date</label>
-                    <input type="date" name="MEDREC_CONSUL_DATE" class="form-control" required>
+                    <input type="date" name="MEDREC_CONSUL_DATE" id="add_record_date" class="form-control" required>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Diagnosis</label>
@@ -159,7 +159,7 @@
                     </select>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label fw-semibold" for="edit_record_appointment">Appointment ID</label>
+                    <label class="form-label fw-semibold" for="edit_record_appointment_display">Appointment ID</label>
                     <input type="text" id="edit_record_appointment_display" class="form-control bg-light" readonly>
                     <input type="hidden" name="APPT_ID" id="edit_record_appointment_id">
                 </div>
@@ -208,6 +208,7 @@ function fillAppointmentOptions(patientSelect, appointmentSelect, selectedId) {
             if (String(item.id) === String(selectedId)) {
                 option.selected = true;
             }
+            option.dataset.date = item.date || '';
             appointmentSelect.add(option);
         });
 }
@@ -216,8 +217,12 @@ document.getElementById('add_record_patient')?.addEventListener('change', functi
     fillAppointmentOptions(this, document.getElementById('add_record_appointment'));
 });
 
-document.getElementById('edit_record_patient')?.addEventListener('change', function () {
-    fillAppointmentOptions(this, document.getElementById('edit_record_appointment'));
+document.getElementById('add_record_appointment')?.addEventListener('change', function () {
+    const selected = this.options[this.selectedIndex];
+    const dateInput = document.getElementById('add_record_date');
+    if (selected && selected.dataset.date && dateInput) {
+        dateInput.value = selected.dataset.date;
+    }
 });
 
 document.getElementById('editMedicalRecordModal')?.addEventListener('show.bs.modal', function (event) {
