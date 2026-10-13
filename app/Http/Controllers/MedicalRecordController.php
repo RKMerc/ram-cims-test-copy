@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Appointment;
 use App\Models\AppUser;
 use App\Models\MedicalRecord;
-use Carbon\Carbon;
+use App\Support\ClinicCalendar;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -66,10 +66,12 @@ class MedicalRecordController extends Controller
         $appointmentChoices = $appointments->map(fn (Appointment $appointment) => [
             'id' => $appointment->APPOINTMENT_ID,
             'patient_id' => (string) $appointment->PATIENT_ID,
-            'label' => '#'.$appointment->APPOINTMENT_ID.' — '.Carbon::parse($appointment->SCHEDULED_AT)->format('M d, Y h:i A'),
+            'label' => '#'.$appointment->APPOINTMENT_ID,
+            'scheduled' => ClinicCalendar::parse((string) $appointment->SCHEDULED_AT)->format('F j, Y, g:i A'),
         ])->values();
+        $consultationDateLimit = ClinicCalendar::now()->toDateString();
 
-        return view('medical-records.index', compact('medicalRecords', 'patients', 'appointmentChoices', 'search'));
+        return view('medical-records.index', compact('medicalRecords', 'patients', 'appointmentChoices', 'search', 'consultationDateLimit'));
     }
 
     public function store(Request $request)
@@ -108,8 +110,16 @@ class MedicalRecordController extends Controller
             ]);
         }
 
+        $consultation = ClinicCalendar::parse($validated['MEDREC_CONSUL_DATE'])->startOfDay();
+        if ($consultation->greaterThan(ClinicCalendar::now()->startOfDay())) {
+            throw ValidationException::withMessages([
+                'MEDREC_CONSUL_DATE' => 'Consultation date cannot be in the future.',
+            ]);
+        }
+
         $validated['PATIENT_ID'] = (int) $appointment->PATIENT_ID;
         $validated['APPT_ID'] = $appointment->APPOINTMENT_ID;
+        $validated['MEDREC_CONSUL_DATE'] = $consultation->toDateString();
 
         return $validated;
     }
