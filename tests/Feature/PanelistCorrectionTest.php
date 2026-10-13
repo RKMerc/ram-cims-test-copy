@@ -39,6 +39,8 @@ class PanelistCorrectionTest extends TestCase
 
         $page = $this->actingAs($student)->get('/appointments');
         $page->assertOk();
+        $page->assertSee(ClinicCalendar::parse($scheduled)->format('Y-m-d h:i A'));
+        $page->assertDontSee(Carbon::parse($scheduled)->timezone(ClinicCalendar::timezone())->format('Y-m-d h:i A'));
         $page->assertSee('data-bs-target="#cancelAppointmentModal"', false);
         $page->assertSee('Are you sure you want to cancel this appointment? Your reserved time slot may become available for another patient.');
         $page->assertSee('Keep Appointment');

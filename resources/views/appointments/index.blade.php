@@ -88,7 +88,7 @@
                             <td><span class="badge bg-info text-dark">{{ $app->APPOINTMENT_TYPE }}</span></td>
                             <td>{{ $app->APPOINTMENT_REASON }}</td>
                             <td>{{ $app->ATTENDING_PHYSICIAN }}</td>
-                            <td>{{ \Carbon\Carbon::parse($app->SCHEDULED_AT)->format('Y-m-d h:i A') }}</td>
+                            <td>{{ \App\Support\ClinicCalendar::parse((string) $app->SCHEDULED_AT)->format('Y-m-d h:i A') }}</td>
                             <td>
                                 <span class="badge {{ $app->STATUS == 'Completed' ? 'bg-success' : ($app->STATUS == 'Cancelled' ? 'bg-danger' : 'bg-warning text-dark') }}">
                                     {{ $app->STATUS }}
@@ -104,7 +104,7 @@
                                         data-type="{{ $app->APPOINTMENT_TYPE }}"
                                         data-reason="{{ $app->APPOINTMENT_REASON }}"
                                         data-doctor="{{ $app->ATTENDING_PHYSICIAN }}"
-                                        data-schedule="{{ date('Y-m-d\TH:i', strtotime($app->SCHEDULED_AT)) }}"
+                                        data-schedule="{{ \App\Support\ClinicCalendar::parse((string) $app->SCHEDULED_AT)->format('Y-m-d\TH:i') }}"
                                         data-status="{{ $app->STATUS }}">
                                         Edit
                                     </button>
@@ -117,7 +117,7 @@
                                     <button type="button" class="btn btn-sm btn-outline-danger fw-semibold rounded-2"
                                         data-bs-toggle="modal" data-bs-target="#cancelAppointmentModal"
                                         data-action="{{ route('appointments.cancel', $app) }}"
-                                        data-detail="#{{ $app->APPOINTMENT_ID }} · {{ \Carbon\Carbon::parse($app->SCHEDULED_AT)->format('M d, Y h:i A') }}">
+                                        data-detail="#{{ $app->APPOINTMENT_ID }} · {{ \App\Support\ClinicCalendar::parse((string) $app->SCHEDULED_AT)->format('M d, Y h:i A') }}">
                                         Cancel Appointment
                                     </button>
                                 @else
