@@ -154,6 +154,37 @@ class PanelistRevisionTest extends TestCase
         $this->actingAs($nurse)->get('/notifications')->assertOk()->assertSee('Inventory alert');
     }
 
+    public function test_inventory_email_stays_off_until_the_clinic_recipient_is_enabled(): void
+    {
+        Mail::fake();
+        config([
+            'clinic.alert_email' => 'anamaet@apc.edu.ph',
+            'clinic.alerts_enabled' => false,
+            'clinic.smtp_test_recipient' => 'jerichoalba8@gmail.com',
+        ]);
+        $nurse = $this->nurse();
+        Inventory::create($this->medicine(5004, 12, now()->addYear()->toDateString()));
+
+        $this->actingAs($nurse)->post('/inventory/5004/dispense', ['quantity' => 2])->assertRedirect();
+        $this->assertSame(1, ClinicNotification::count());
+        $this->assertSame(1, StockAlert::whereNull('resolved_at')->count());
+        Mail::assertNothingQueued();
+
+        config(['clinic.alerts_enabled' => true, 'clinic.alert_email' => 'jerichoalba8@gmail.com']);
+        Inventory::where('ITEM_CODE', 5004)->update(['ITEM_QUANTITY' => 12]);
+        app(\App\Support\StockWatch::class)->sync(Inventory::where('ITEM_CODE', 5004)->first());
+        $this->actingAs($nurse)->post('/inventory/5004/dispense', ['quantity' => 2])->assertRedirect();
+        Mail::assertNothingQueued();
+
+        config(['clinic.alert_email' => 'anamaet@apc.edu.ph']);
+        Inventory::where('ITEM_CODE', 5004)->update(['ITEM_QUANTITY' => 12]);
+        app(\App\Support\StockWatch::class)->sync(Inventory::where('ITEM_CODE', 5004)->first());
+        $this->actingAs($nurse)->post('/inventory/5004/dispense', ['quantity' => 2])->assertRedirect();
+        Mail::assertQueued(LowStockAlertMail::class, function (LowStockAlertMail $mail) {
+            return $mail->hasTo('anamaet@apc.edu.ph');
+        });
+    }
+
     public function test_mail_failure_does_not_undo_a_dispense(): void
     {
         config(['clinic.alert_email' => 'clinic@apc.edu.ph']);

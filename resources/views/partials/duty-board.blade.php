@@ -52,7 +52,7 @@
                 <tr>
                     <th class="ps-3">TIMESLOT</th>
                     @foreach($grid['days'] as $day)
-                        <th class="text-center">{{ $day['name'] }}<br><span class="fw-normal text-lowercase">{{ \Carbon\Carbon::parse($day['date'])->format('M j') }}</span></th>
+                        <th class="text-center">{{ $day['name'] }}<br><span class="fw-normal">{{ \Carbon\Carbon::parse($day['date'])->format('F j') }}</span></th>
                     @endforeach
                 </tr>
             </thead>
@@ -62,7 +62,7 @@
                         <td class="ps-3 fw-semibold text-nowrap">{{ $row['label'] }}</td>
                         @foreach($row['cells'] as $cell)
                             @php
-                                $slotLabel = $row['label'].' · '.\Carbon\Carbon::parse($cell['date'])->format('l, M j');
+                                $slotLabel = $row['label'].' · '.\Carbon\Carbon::parse($cell['date'])->format('l, F j');
                             @endphp
                             <td class="text-center p-1 {{ $cell['open'] ? 'duty-open' : 'duty-closed' }}">
                                 <button type="button"
