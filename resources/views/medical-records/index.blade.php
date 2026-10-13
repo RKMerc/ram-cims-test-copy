@@ -4,6 +4,9 @@
 
 @section('content')
 <div class="container-fluid px-0">
+    @if($errors->any())
+        <div class="alert alert-warning">{{ $errors->first() }}</div>
+    @endif
 
     <!-- Medical Records Table Section -->
     <div class="card mb-4 shadow-sm border-0 rounded-3 overflow-hidden">
@@ -98,15 +101,21 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                <p class="fw-semibold mb-2" style="color:#003B7A;">Patient Information</p>
                 <div class="mb-3">
-                    <label class="form-label fw-semibold" for="add_record_patient">Patient name</label>
+                    <label class="form-label fw-semibold" for="add_record_patient">Patient ID / Patient name</label>
                     <select name="PATIENT_ID" id="add_record_patient" class="form-select" required>
                         <option value="" selected disabled>Select a patient</option>
                         @foreach($patients as $patient)
-                            <option value="{{ $patient['id'] }}">{{ $patient['name'] }}</option>
+                            <option value="{{ $patient['id'] }}">{{ $patient['name'] }} — {{ $patient['id'] }}</option>
                         @endforeach
                     </select>
                 </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="add_record_patient_id">Patient ID</label>
+                    <input type="text" id="add_record_patient_id" class="form-control" value="" readonly>
+                </div>
+                <p class="fw-semibold mb-2" style="color:#003B7A;">Appointment Information</p>
                 <div class="mb-3">
                     <label class="form-label fw-semibold" for="add_record_appointment">Appointment ID</label>
                     <select name="APPT_ID" id="add_record_appointment" class="form-select" required>
@@ -114,6 +123,13 @@
                     </select>
                 </div>
                 <div class="mb-3">
+                    <label class="form-label fw-semibold" for="add_record_scheduled">Scheduled Appointment</label>
+                    <input type="text" id="add_record_scheduled" class="form-control" value="" placeholder="Retrieved from the selected appointment" readonly>
+                </div>
+                <p class="fw-semibold mb-2" style="color:#003B7A;">Consultation Information</p>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="add_record_date">Consultation Date</label>
+                    <input type="date" name="MEDREC_CONSUL_DATE" id="add_record_date" class="form-control" value="{{ $consultationDateLimit }}" max="{{ $consultationDateLimit }}" required>
                     <label class="form-label fw-semibold">Consultation Date</label>
                     <input type="date" name="MEDREC_CONSUL_DATE" id="add_record_date" class="form-control" required>
                 </div>
@@ -126,13 +142,13 @@
                     <input type="text" name="MEDREC_MEDICINE_DOSAGE" class="form-control" maxlength="100">
                 </div>
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Notes</label>
+                    <label class="form-label fw-semibold">Clinical Notes</label>
                     <input type="text" name="MEDREC_NOTES" class="form-control" maxlength="45">
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save Record</button>
+                <button type="submit" class="btn btn-primary">Save Medical Record</button>
             </div>
         </form>
     </div>
@@ -149,23 +165,38 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                <p class="fw-semibold mb-2" style="color:#003B7A;">Patient Information</p>
                 <div class="mb-3">
-                    <label class="form-label fw-semibold" for="edit_record_patient">Patient name</label>
+                    <label class="form-label fw-semibold" for="edit_record_patient">Patient ID / Patient name</label>
                     <select name="PATIENT_ID" id="edit_record_patient" class="form-select" required>
                         <option value="" disabled>Select a patient</option>
                         @foreach($patients as $patient)
-                            <option value="{{ $patient['id'] }}">{{ $patient['name'] }}</option>
+                            <option value="{{ $patient['id'] }}">{{ $patient['name'] }} — {{ $patient['id'] }}</option>
                         @endforeach
                     </select>
                 </div>
                 <div class="mb-3">
+                    <label class="form-label fw-semibold" for="edit_record_patient_id">Patient ID</label>
+                    <input type="text" id="edit_record_patient_id" class="form-control" value="" readonly>
+                </div>
+                <p class="fw-semibold mb-2" style="color:#003B7A;">Appointment Information</p>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="edit_record_appointment">Appointment ID</label>
+                    <select name="APPT_ID" id="edit_record_appointment" class="form-select" required>
+                        <option value="" disabled>Select a patient first</option>
+                    </select>
                     <label class="form-label fw-semibold" for="edit_record_appointment_display">Appointment ID</label>
                     <input type="text" id="edit_record_appointment_display" class="form-control bg-light" readonly>
                     <input type="hidden" name="APPT_ID" id="edit_record_appointment_id">
                 </div>
                 <div class="mb-3">
+                    <label class="form-label fw-semibold" for="edit_record_scheduled">Scheduled Appointment</label>
+                    <input type="text" id="edit_record_scheduled" class="form-control" value="" placeholder="Retrieved from the selected appointment" readonly>
+                </div>
+                <p class="fw-semibold mb-2" style="color:#003B7A;">Consultation Information</p>
+                <div class="mb-3">
                     <label class="form-label fw-semibold" for="edit_record_date">Consultation Date</label>
-                    <input type="date" name="MEDREC_CONSUL_DATE" id="edit_record_date" class="form-control" required>
+                    <input type="date" name="MEDREC_CONSUL_DATE" id="edit_record_date" class="form-control" max="{{ $consultationDateLimit }}" required>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold" for="edit_record_diagnosis">Diagnosis</label>
@@ -176,7 +207,7 @@
                     <input type="text" name="MEDREC_MEDICINE_DOSAGE" id="edit_record_dosage" class="form-control" maxlength="100">
                 </div>
                 <div class="mb-3">
-                    <label class="form-label fw-semibold" for="edit_record_notes">Notes</label>
+                    <label class="form-label fw-semibold" for="edit_record_notes">Clinical Notes</label>
                     <input type="text" name="MEDREC_NOTES" id="edit_record_notes" class="form-control" maxlength="45">
                 </div>
             </div>
@@ -193,8 +224,16 @@
 <script>
 const appointmentChoices = @json($appointmentChoices);
 
-function fillAppointmentOptions(patientSelect, appointmentSelect, selectedId) {
+function scheduledLabel(appointmentId) {
+    const match = appointmentChoices.find(function (item) {
+        return String(item.id) === String(appointmentId);
+    });
+    return match ? match.scheduled : '';
+}
+
+function fillAppointmentOptions(patientSelect, appointmentSelect, patientIdInput, scheduledInput, selectedId) {
     const patientId = patientSelect.value;
+    if (patientIdInput) patientIdInput.value = patientId || '';
     appointmentSelect.innerHTML = '';
     const placeholder = new Option(patientId ? 'Select an appointment' : 'Select a patient first', '');
     placeholder.disabled = true;
@@ -211,12 +250,34 @@ function fillAppointmentOptions(patientSelect, appointmentSelect, selectedId) {
             option.dataset.date = item.date || '';
             appointmentSelect.add(option);
         });
+
+    if (scheduledInput) scheduledInput.value = scheduledLabel(appointmentSelect.value);
 }
 
 document.getElementById('add_record_patient')?.addEventListener('change', function () {
-    fillAppointmentOptions(this, document.getElementById('add_record_appointment'));
+    fillAppointmentOptions(
+        this,
+        document.getElementById('add_record_appointment'),
+        document.getElementById('add_record_patient_id'),
+        document.getElementById('add_record_scheduled')
+    );
 });
 
+document.getElementById('add_record_appointment')?.addEventListener('change', function () {
+    document.getElementById('add_record_scheduled').value = scheduledLabel(this.value);
+});
+
+document.getElementById('edit_record_patient')?.addEventListener('change', function () {
+    fillAppointmentOptions(
+        this,
+        document.getElementById('edit_record_appointment'),
+        document.getElementById('edit_record_patient_id'),
+        document.getElementById('edit_record_scheduled')
+    );
+});
+
+document.getElementById('edit_record_appointment')?.addEventListener('change', function () {
+    document.getElementById('edit_record_scheduled').value = scheduledLabel(this.value);
 document.getElementById('add_record_appointment')?.addEventListener('change', function () {
     const selected = this.options[this.selectedIndex];
     const dateInput = document.getElementById('add_record_date');
@@ -233,6 +294,13 @@ document.getElementById('editMedicalRecordModal')?.addEventListener('show.bs.mod
     
     const patientSelect = document.getElementById('edit_record_patient');
     patientSelect.value = button.getAttribute('data-patient') || '';
+    fillAppointmentOptions(
+        patientSelect,
+        document.getElementById('edit_record_appointment'),
+        document.getElementById('edit_record_patient_id'),
+        document.getElementById('edit_record_scheduled'),
+        button.getAttribute('data-appointment')
+    );
     
     const apptId = button.getAttribute('data-appointment');
     document.getElementById('edit_record_appointment_id').value = apptId;

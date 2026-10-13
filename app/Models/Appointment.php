@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\AppUser;
+use App\Support\ClinicCalendar;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -57,6 +58,17 @@ class Appointment extends Model
     public function scopeQueued(Builder $query): Builder
     {
         return $query->whereRaw("LOWER(COALESCE(STATUS, '')) IN ('pending', 'scheduled', 'queued', 'waiting')");
+    }
+
+    public function studentCanCancel(): bool
+    {
+        $status = strtolower(trim((string) $this->STATUS));
+
+        if (! in_array($status, ['pending', 'scheduled'], true)) {
+            return false;
+        }
+
+        return ClinicCalendar::parse((string) $this->SCHEDULED_AT)->greaterThan(ClinicCalendar::now());
     }
 
     public static function nextAppointmentId(): int

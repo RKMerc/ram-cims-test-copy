@@ -7,12 +7,13 @@ use App\Models\AuditLog;
 use App\Support\ClinicAccess;
 use App\Support\ClinicCalendar;
 use App\Support\DutyBoard;
+use App\Support\DutySlotGuard;
 use App\Support\PortalGrant;
 use Illuminate\Http\Request;
 
 class DutySlotController extends Controller
 {
-    public function __construct(private DutyBoard $board, private ClinicAccess $access) {}
+    public function __construct(private DutyBoard $board, private ClinicAccess $access, private DutySlotGuard $slots) {}
 
     public function book(Request $request)
     {
@@ -48,7 +49,33 @@ class DutySlotController extends Controller
             ];
         }
 
-        $this->board->saveAppointment($data['practitioner'], $data['duty_date'], $data['start'], $fields);
+        $result = $this->slots->run(
+            $data['practitioner'],
+            $data['duty_date'].' '.$data['start'],
+            function () use ($data, $fields) {
+                $slot = $this->board->findSlot($data['practitioner'], $data['duty_date'], $data['start']);
+
+                if (! $slot) {
+                    return 'missing';
+                }
+
+                if ($slot['status'] !== 'available') {
+                    return 'taken';
+                }
+
+                $this->board->saveAppointment($data['practitioner'], $data['duty_date'], $data['start'], $fields);
+
+                return 'booked';
+            }
+        );
+
+        if ($result === 'missing') {
+            return $this->back($request)->with('error', 'That time slot is not on the duty board.');
+        }
+
+        if ($result !== 'booked') {
+            return $this->back($request)->with('error', 'That time slot is not available.');
+        }
 
         return $this->back($request)->with('success', 'Appointment booked for '.$fields['patient_name'].'.');
     }
@@ -68,7 +95,25 @@ class DutySlotController extends Controller
             return $this->back($request)->with('error', 'That visit is not on this physician\'s schedule.');
         }
 
-        $appointment->update(['STATUS' => 'Cancelled']);
+        $released = $this->slots->run(
+            (string) $appointment->ATTENDING_PHYSICIAN,
+            (string) $appointment->SCHEDULED_AT,
+            function () use ($appointment) {
+                $current = Appointment::query()->whereKey($appointment->getKey())->lockForUpdate()->first();
+
+                if (! $current) {
+                    return false;
+                }
+
+                $current->update(['STATUS' => 'Cancelled']);
+
+                return true;
+            }
+        );
+
+        if ($released !== true) {
+            return $this->back($request)->with('error', 'That visit could not be cancelled.');
+        }
 
         return $this->back($request)->with('success', 'The visit for '.$appointment->PATIENT_NAME.' was cancelled. That hour is open again.');
     }

@@ -28,6 +28,8 @@
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="CLINIC_ALERT_EMAIL" value=""/>
+        <env name="CLINIC_ALERTS_ENABLED" value="true"/>
+        <env name="MAIL_TEST_RECIPIENT" value=""/>
         <env name="GEMINI_API_KEY" value=""/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

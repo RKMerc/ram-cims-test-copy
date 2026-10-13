@@ -76,9 +76,7 @@
                             <th>Physician/Staff</th>
                             <th>Date & Time</th>
                             <th>Status</th>
-                            @if($isClinicStaff)
-                                <th class="text-center">Actions</th>
-                            @endif
+                            <th class="text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -90,37 +88,46 @@
                             <td><span class="badge bg-info text-dark">{{ $app->APPOINTMENT_TYPE }}</span></td>
                             <td>{{ $app->APPOINTMENT_REASON }}</td>
                             <td>{{ $app->ATTENDING_PHYSICIAN }}</td>
-                            <td>{{ \Carbon\Carbon::parse($app->SCHEDULED_AT)->format('Y-m-d h:i A') }}</td>
+                            <td>{{ \App\Support\ClinicCalendar::parse((string) $app->SCHEDULED_AT)->format('Y-m-d h:i A') }}</td>
                             <td>
                                 <span class="badge {{ $app->STATUS == 'Completed' ? 'bg-success' : ($app->STATUS == 'Cancelled' ? 'bg-danger' : 'bg-warning text-dark') }}">
                                     {{ $app->STATUS }}
                                 </span>
                             </td>
-                            @if($isClinicStaff)
                             <td class="text-center">
-                                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold edit-btn rounded-2"
-                                    data-bs-toggle="modal" data-bs-target="#editAppointmentModal"
-                                    data-id="{{ $app->APPOINTMENT_ID }}"
-                                    data-patient-id="{{ $app->PATIENT_ID }}"
-                                    data-patient="{{ $app->PATIENT_NAME }}"
-                                    data-type="{{ $app->APPOINTMENT_TYPE }}"
-                                    data-reason="{{ $app->APPOINTMENT_REASON }}"
-                                    data-doctor="{{ $app->ATTENDING_PHYSICIAN }}"
-                                    data-schedule="{{ date('Y-m-d\TH:i', strtotime($app->SCHEDULED_AT)) }}"
-                                    data-status="{{ $app->STATUS }}">
-                                    Edit
-                                </button>
-                                <form action="/appointments/{{ $app->APPOINTMENT_ID }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to remove this appointment?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-outline-danger fw-semibold rounded-2">Remove</button>
-                                </form>
+                                @if($isClinicStaff)
+                                    <button type="button" class="btn btn-sm btn-outline-primary fw-semibold edit-btn rounded-2"
+                                        data-bs-toggle="modal" data-bs-target="#editAppointmentModal"
+                                        data-id="{{ $app->APPOINTMENT_ID }}"
+                                        data-patient-id="{{ $app->PATIENT_ID }}"
+                                        data-patient="{{ $app->PATIENT_NAME }}"
+                                        data-type="{{ $app->APPOINTMENT_TYPE }}"
+                                        data-reason="{{ $app->APPOINTMENT_REASON }}"
+                                        data-doctor="{{ $app->ATTENDING_PHYSICIAN }}"
+                                        data-schedule="{{ \App\Support\ClinicCalendar::parse((string) $app->SCHEDULED_AT)->format('Y-m-d\TH:i') }}"
+                                        data-status="{{ $app->STATUS }}">
+                                        Edit
+                                    </button>
+                                    <form action="/appointments/{{ $app->APPOINTMENT_ID }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to remove this appointment?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-sm btn-outline-danger fw-semibold rounded-2">Remove</button>
+                                    </form>
+                                @elseif($app->studentCanCancel())
+                                    <button type="button" class="btn btn-sm btn-outline-danger fw-semibold rounded-2"
+                                        data-bs-toggle="modal" data-bs-target="#cancelAppointmentModal"
+                                        data-action="{{ route('appointments.cancel', $app) }}"
+                                        data-detail="#{{ $app->APPOINTMENT_ID }} · {{ \App\Support\ClinicCalendar::parse((string) $app->SCHEDULED_AT)->format('M d, Y h:i A') }}">
+                                        Cancel Appointment
+                                    </button>
+                                @else
+                                    <span class="text-muted">—</span>
+                                @endif
                             </td>
-                            @endif
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="{{ $isClinicStaff ? 9 : 8 }}" class="text-center py-4 text-muted">{{ $showingHistory ? 'No appointments from previous weeks.' : 'No appointments for this week or later.' }}</td>
+                            <td colspan="9" class="text-center py-4 text-muted">{{ $showingHistory ? 'No appointments from previous weeks.' : 'No appointments for this week or later.' }}</td>
                         </tr>
                         @endforelse
                     </tbody>
@@ -131,6 +138,28 @@
             @endif
         </div>
     </div>
+
+@unless($isClinicStaff)
+<div class="modal fade" id="cancelAppointmentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" id="cancelAppointmentForm" action="" class="modal-content">
+            @csrf
+            <div class="modal-header text-white" style="background:#003B7A;">
+                <h5 class="modal-title fw-bold">Cancel Appointment?</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="fw-semibold mb-2" id="cancelAppointmentDetail"></p>
+                <p class="mb-0">Are you sure you want to cancel this appointment? Your reserved time slot may become available for another patient.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Keep Appointment</button>
+                <button type="submit" class="btn btn-danger fw-semibold">Confirm Cancellation</button>
+            </div>
+        </form>
+    </div>
+</div>
+@endunless
 
 <!-- Add Appointment Modal -->
 <div class="modal fade" id="addAppointmentModal" tabindex="-1" aria-hidden="true">
@@ -285,6 +314,18 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const cancelModal = document.getElementById('cancelAppointmentModal');
+    if (cancelModal) {
+        cancelModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            if (!button) return;
+            const form = document.getElementById('cancelAppointmentForm');
+            const detail = document.getElementById('cancelAppointmentDetail');
+            if (form) form.action = button.getAttribute('data-action') || '';
+            if (detail) detail.textContent = button.getAttribute('data-detail') || '';
+        });
+    }
+
     const editModal = document.getElementById('editAppointmentModal');
 
     if (editModal) {

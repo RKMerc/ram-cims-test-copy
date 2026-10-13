@@ -70,7 +70,7 @@ class AppServiceProvider extends ServiceProvider
                 'dutyPractitioner' => $selected,
                 'dutyPractitionerLabel' => $person['label'] ?? null,
                 'weekStart' => $monday->toDateString(),
-                'weekLabel' => $monday->format('M j').' – '.$monday->copy()->addDays(4)->format('M j, Y'),
+                'weekLabel' => $monday->format('F j').' – '.$monday->copy()->addDays(4)->format('F j, Y'),
                 'previousWeek' => $monday->copy()->subWeek()->toDateString(),
                 'nextWeek' => $monday->copy()->addWeek()->toDateString(),
                 'dutyGrid' => $selected ? $board->week($selected, $monday) : ['days' => [], 'rows' => []],

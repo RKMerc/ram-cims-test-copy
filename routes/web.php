@@ -63,6 +63,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/appointments/slots', [AppointmentController::class, 'slots'])->name('appointments.slots');
     Route::get('/appointments/duty-dates', [AppointmentController::class, 'dutyDates'])->name('appointments.duty-dates');
+    Route::post('/appointments/{appointment}/cancel', [AppointmentController::class, 'cancel'])->name('appointments.cancel');
     Route::resource('appointments', AppointmentController::class);
     Route::post('/duty-slots/book', [DutySlotController::class, 'book'])->name('duty-slots.book');
     Route::post('/duty-slots/cancel', [DutySlotController::class, 'cancel'])->name('duty-slots.cancel');

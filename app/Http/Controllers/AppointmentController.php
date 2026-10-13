@@ -8,13 +8,14 @@ use App\Models\DutySlotState;
 use App\Support\ClinicAccess;
 use App\Support\ClinicCalendar;
 use App\Support\ClinicRoster;
+use App\Support\DutySlotGuard;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class AppointmentController extends Controller
 {
-    public function __construct(private ClinicAccess $access) {}
+    public function __construct(private ClinicAccess $access, private DutySlotGuard $slots) {}
 
     public function index(Request $request)
     {
@@ -149,13 +150,63 @@ class AppointmentController extends Controller
             'STATUS' => 'nullable|string',
         ]);
 
-        if ($message = $this->dutyError($validated['ATTENDING_PHYSICIAN'], $validated['SCHEDULED_AT'])) {
+        $result = $this->slots->run(
+            $validated['ATTENDING_PHYSICIAN'],
+            $validated['SCHEDULED_AT'],
+            function () use ($validated) {
+                if ($message = $this->dutyError($validated['ATTENDING_PHYSICIAN'], $validated['SCHEDULED_AT'])) {
+                    return $message;
+                }
+
+                Appointment::create($validated);
+
+                return true;
+            }
+        );
+
+        if ($result !== true) {
+            $message = is_string($result)
+                ? $result
+                : 'That duty slot is already booked. Choose another time.';
+
             return back()->withErrors(['SCHEDULED_AT' => $message])->withInput();
         }
 
-        Appointment::create($validated);
-
         return redirect('/appointments')->with('success', 'Appointment scheduled successfully!');
+    }
+
+    public function cancel(Appointment $appointment)
+    {
+        abort_if($this->access->isStaff(), 403);
+
+        $account = $this->access->account();
+        abort_unless($account, 403);
+        abort_unless(
+            Appointment::query()->forPatient($account)->whereKey($appointment->getKey())->exists(),
+            403
+        );
+
+        $released = $this->slots->run(
+            (string) $appointment->ATTENDING_PHYSICIAN,
+            (string) $appointment->SCHEDULED_AT,
+            function () use ($appointment) {
+                $current = Appointment::query()->whereKey($appointment->getKey())->lockForUpdate()->first();
+
+                if (! $current || ! $current->studentCanCancel()) {
+                    return false;
+                }
+
+                $current->update(['STATUS' => 'Cancelled']);
+
+                return true;
+            }
+        );
+
+        if ($released !== true) {
+            return redirect('/appointments')->with('error', 'This appointment can no longer be cancelled.');
+        }
+
+        return redirect('/appointments')->with('success', 'Your appointment has been cancelled successfully.');
     }
 
     public function update(Request $request, $id)
@@ -174,14 +225,30 @@ class AppointmentController extends Controller
             'STATUS' => 'required|string',
         ]);
 
-        if ($message = $this->dutyError($validated['ATTENDING_PHYSICIAN'], $validated['SCHEDULED_AT'], (int) $appointment->APPOINTMENT_ID)) {
+        $result = $this->slots->run(
+            $validated['ATTENDING_PHYSICIAN'],
+            $validated['SCHEDULED_AT'],
+            function () use ($appointment, $validated) {
+                if ($message = $this->dutyError($validated['ATTENDING_PHYSICIAN'], $validated['SCHEDULED_AT'], (int) $appointment->APPOINTMENT_ID)) {
+                    return $message;
+                }
+
+                $appointment->update($validated);
+
+                return true;
+            }
+        );
+
+        if ($result !== true) {
+            $message = is_string($result)
+                ? $result
+                : 'That duty slot is already booked. Choose another time.';
+
             return response()->json([
                 'message' => $message,
                 'errors' => ['SCHEDULED_AT' => [$message]],
             ], 422);
         }
-
-        $appointment->update($validated);
 
         return response()->json(['message' => 'Appointment schedule updated successfully!']);
     }

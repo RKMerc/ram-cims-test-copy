@@ -87,9 +87,22 @@ class StockWatch
             'body' => $body,
         ]);
 
+        if (! config('clinic.alerts_enabled')) {
+            return;
+        }
+
         $recipient = config('clinic.alert_email');
         if (! is_string($recipient) || trim($recipient) === '') {
             Log::warning('Inventory email was not queued because CLINIC_ALERT_EMAIL is empty.', [
+                'item_code' => $item->ITEM_CODE,
+            ]);
+
+            return;
+        }
+
+        $testRecipient = strtolower(trim((string) config('clinic.smtp_test_recipient')));
+        if ($testRecipient !== '' && strtolower(trim($recipient)) === $testRecipient) {
+            Log::warning('Inventory email was not queued because the clinic recipient is the SMTP test address.', [
                 'item_code' => $item->ITEM_CODE,
             ]);
 
@@ -103,7 +116,6 @@ class StockWatch
                 Log::warning('Low-stock email was not queued.', [
                     'item_code' => $item->ITEM_CODE,
                     'error' => $exception::class,
-                    'message' => $exception->getMessage(),
                 ]);
             }
         });
